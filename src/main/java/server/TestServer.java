@@ -4,6 +4,7 @@ import common.service.UserService;
 import common.service.impl.UserServiceImpl;
 import server.provider.ServiceProvider;
 import server.server.RpcServer;
+import server.server.impl.NettyRPCServer;
 import server.server.impl.SimpleRPCServer;
 
 public class TestServer {
@@ -16,7 +17,7 @@ public class TestServer {
         serviceProvider.provideServiceInterface(userService);
 
         //实例化服务端并启动
-        RpcServer rpcServer = new SimpleRPCServer(serviceProvider);
+        RpcServer rpcServer = new NettyRPCServer(serviceProvider);
         rpcServer.start(9999);
     }
 }
