@@ -5,7 +5,6 @@ import common.service.impl.UserServiceImpl;
 import server.provider.ServiceProvider;
 import server.server.RpcServer;
 import server.server.impl.NettyRPCServer;
-import server.server.impl.SimpleRPCServer;
 
 public class TestServer {
     public static void main(String[] args) {
