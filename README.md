@@ -16,3 +16,8 @@
 - 高性能：全量数据存储在内存中，直接服务于客户端的所有非事务请求，尤其适用于读多写少的场景。
 - 高可用：zookeeper一般以集群方式部署，即使单个节点故障，也不会影响整体服务。
 - 严格顺序访问：对每个更新请求，zookeeper都会分配一个全局唯一的递增编号，保证顺序性。
+
+使用方式：
+- 在服务端的ServiceProvider中引入zookeeper，在provideServiceInterface方法注册服务时，同时向zookeeper提交服务信息
+- 在客户端NettyRpcClient中，需要调用一个方法时，首先从zookeeper申请查询服务名对应的地址和端口，再进行请求操作
+- 运行时，先在zookeeper安装目录的bin目录下打开zkServer.cmd把zookeeper服务跑起来，然后先后启动server和client

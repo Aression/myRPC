@@ -8,11 +8,11 @@ import server.server.impl.NettyRPCServer;
 
 public class TestServer {
     public static void main(String[] args) {
-        //服务注册中心
-        ServiceProvider serviceProvider = new ServiceProvider();
-
-        //实例化服务并进行注册
+        //实例化服务
         UserService userService = new UserServiceImpl();
+
+        //在服务提供者中上线服务并注册
+        ServiceProvider serviceProvider = new ServiceProvider("127.0.0.1",9999);
         serviceProvider.provideServiceInterface(userService);
 
         //实例化服务端并启动

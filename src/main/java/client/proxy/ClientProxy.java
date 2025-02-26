@@ -14,15 +14,18 @@ import java.lang.reflect.Proxy;
 @AllArgsConstructor
 public class ClientProxy implements InvocationHandler {
     private RpcClient rpcClient;
-    public ClientProxy(String host,int port,int choose){
-        switch (choose){
-            case 0:
-                rpcClient = new NettyRpcClient(host, port);
-                break;
-            case 1:
-                rpcClient = new SimpleSocketRpcClient(host,port);
-        }
+    public ClientProxy(){
+        rpcClient = new NettyRpcClient();
     }
+//    public ClientProxy(String host,int port,int choose){
+//        switch (choose){
+//            case 0:
+//                rpcClient = new NettyRpcClient(host, port);
+//                break;
+//            case 1:
+//                rpcClient = new SimpleSocketRpcClient(host,port);
+//        }
+//    }
     @Override
     public Object invoke(Object proxy, Method method, Object[] args) {
         //执行request封装，通过宣称的class信息构建一个request并与服务器通信获取回应，返回数据

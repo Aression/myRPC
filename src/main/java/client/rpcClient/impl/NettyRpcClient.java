@@ -2,6 +2,8 @@ package client.rpcClient.impl;
 
 import client.netty.initializer.NettyClientInitializer;
 import client.rpcClient.RpcClient;
+import client.serviceCenter.ServiceCenter;
+import client.serviceCenter.ZKServiceCenter;
 import common.message.RpcRequest;
 import common.message.RpcResponse;
 import io.netty.bootstrap.Bootstrap;
@@ -13,7 +15,9 @@ import io.netty.channel.socket.nio.NioSocketChannel;
 import io.netty.util.AttributeKey;
 import lombok.AllArgsConstructor;
 
-@AllArgsConstructor
+import java.net.InetSocketAddress;
+
+
 public class NettyRpcClient implements RpcClient {
     private String host;
     private int port;
@@ -25,8 +29,14 @@ public class NettyRpcClient implements RpcClient {
      */
     private static final EventLoopGroup eventLoopGroup;
 
+    //服务中心
+    private ServiceCenter serviceCenter;
+    public NettyRpcClient(){
+        this.serviceCenter=new ZKServiceCenter();
+    }
+
+    //Netty初始化
     static{
-        //init
         eventLoopGroup = new NioEventLoopGroup();
         bootstrap = new Bootstrap();
         bootstrap.group(eventLoopGroup).channel(NioSocketChannel.class)
@@ -35,6 +45,11 @@ public class NettyRpcClient implements RpcClient {
 
     @Override
     public RpcResponse sendRequest(RpcRequest request) {
+        // 从zookeeper注册中心获取host和port
+        InetSocketAddress addr = serviceCenter.serviceDiscovery(request.getInterfaceName());
+        String host = addr.getHostName();
+        int port = addr.getPort();
+
         try{
             // 创建一个channelFuture对象，从给定ip端口获取连接。sync表示方法堵塞直到获得连接。
             // channelFuture是异步操作的结果，表示确认连接过程完成（成功或失败）
