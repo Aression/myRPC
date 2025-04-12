@@ -11,6 +11,10 @@ import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
 
+/*
+ * JDK动态代理类，通过工厂模式接收调用的服务对象，通过invoke方法实现代理功能
+ * 注意这里实现的InovationHandler，所以是动态代理
+ */
 @AllArgsConstructor
 public class ClientProxy implements InvocationHandler {
     private RpcClient rpcClient;

@@ -6,12 +6,21 @@ import io.netty.channel.SimpleChannelInboundHandler;
 import io.netty.util.AttributeKey;
 
 public class NettyClientHandler extends SimpleChannelInboundHandler<RpcResponse> {
+    private static final AttributeKey<RpcResponse> RESPONSE_KEY = AttributeKey.valueOf("RPCResponse");
 
     @Override
     protected void channelRead0(ChannelHandlerContext channelHandlerContext, RpcResponse rpcResponse) throws Exception {
-        // 为rpcResponse设置别名并绑定到当前属性中，允许后续逻辑通过channel获取response
-        AttributeKey<RpcResponse> key = AttributeKey.valueOf("RPCResponse");
-        channelHandlerContext.channel().attr(key).set(rpcResponse);
-        channelHandlerContext.channel().close(); //接收到响应后主动关闭当前连接（短连接模式）
+        System.out.println("收到服务端响应: " + rpcResponse);
+        // 设置响应
+        channelHandlerContext.channel().attr(RESPONSE_KEY).set(rpcResponse);
+        // 关闭通道
+        channelHandlerContext.channel().close();
+    }
+
+    @Override
+    public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
+        System.out.println("客户端处理响应时出错: " + cause.getMessage());
+        cause.printStackTrace();
+        ctx.close();
     }
 }

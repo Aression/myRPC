@@ -21,3 +21,5 @@
 - 在服务端的ServiceProvider中引入zookeeper，在provideServiceInterface方法注册服务时，同时向zookeeper提交服务信息
 - 在客户端NettyRpcClient中，需要调用一个方法时，首先从zookeeper申请查询服务名对应的地址和端口，再进行请求操作
 - 运行时，先在zookeeper安装目录的bin目录下打开zkServer.cmd把zookeeper服务跑起来，然后先后启动server和client
+
+### version4 自定义序列化方法+性能对比

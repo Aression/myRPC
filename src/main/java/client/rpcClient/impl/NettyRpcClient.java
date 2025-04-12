@@ -13,33 +13,25 @@ import io.netty.channel.EventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.nio.NioSocketChannel;
 import io.netty.util.AttributeKey;
-import lombok.AllArgsConstructor;
-
 import java.net.InetSocketAddress;
-
+import java.util.concurrent.TimeUnit;
 
 public class NettyRpcClient implements RpcClient {
-    private String host;
-    private int port;
-    // Netty相关配置
-    private static final Bootstrap bootstrap; // Netty用于启动客户端的对象，负责设置与服务器的连接配置
-    /*
-    Netty内置线程池，用于处理I/O操作。
-    初始化为NioSocketChannel，基于非阻塞I/O(NIO)实现，适合C/S架构通信。
-     */
+    private static final AttributeKey<RpcResponse> RESPONSE_KEY = AttributeKey.valueOf("RPCResponse");
+    private static final Bootstrap bootstrap;
     private static final EventLoopGroup eventLoopGroup;
-
-    //服务中心
     private ServiceCenter serviceCenter;
+    private static final int TIMEOUT = 5;
+
     public NettyRpcClient(){
-        this.serviceCenter=new ZKServiceCenter();
+        this.serviceCenter = new ZKServiceCenter();
     }
 
-    //Netty初始化
     static{
         eventLoopGroup = new NioEventLoopGroup();
         bootstrap = new Bootstrap();
-        bootstrap.group(eventLoopGroup).channel(NioSocketChannel.class)
+        bootstrap.group(eventLoopGroup)
+                .channel(NioSocketChannel.class)
                 .handler(new NettyClientInitializer());
     }
 
@@ -47,32 +39,48 @@ public class NettyRpcClient implements RpcClient {
     public RpcResponse sendRequest(RpcRequest request) {
         // 从zookeeper注册中心获取host和port
         InetSocketAddress addr = serviceCenter.serviceDiscovery(request.getInterfaceName());
+        if(addr == null) {
+            System.out.println("无法找到服务 " + request.getInterfaceName() + " 的可用节点");
+            return RpcResponse.fail(404, "服务不可用");
+        }
+
         String host = addr.getHostName();
         int port = addr.getPort();
+        System.out.println("连接到服务节点: " + host + ":" + port);
 
-        try{
-            // 创建一个channelFuture对象，从给定ip端口获取连接。sync表示方法堵塞直到获得连接。
-            // channelFuture是异步操作的结果，表示确认连接过程完成（成功或失败）
-            ChannelFuture channelFuture = bootstrap.connect(host,port).sync();
-            // 从ChannelFuture获取连接单位
-            Channel channel = channelFuture.channel();
-            //发送数据
+        Channel channel = null;
+        try {
+            // 连接服务端
+            ChannelFuture channelFuture = bootstrap.connect(host, port).sync();
+            channel = channelFuture.channel();
+            
+            // 发送请求
             channel.writeAndFlush(request);
-            //堵塞直到获得结果
-            channel.closeFuture().sync();
-
-            /*
-            获取特定名称下channel中的内容
-            目前是堵塞获取，也可以通过添加监听器来进行异步获取
-             */
-            AttributeKey<RpcResponse> key = AttributeKey.valueOf("RPCResponse");
-            RpcResponse rpcResponse = channel.attr(key).get();
-
-            System.out.println("Netty Client Get Response:"+rpcResponse);
-            return rpcResponse;
+            System.out.println("已发送请求: " + request);
+            
+            // 等待响应，设置超时时间
+            if (!channel.closeFuture().await(TIMEOUT, TimeUnit.SECONDS)) {
+                System.out.println("等待响应超时");
+                return RpcResponse.fail(504, "请求超时");
+            }
+            
+            // 获取响应
+            RpcResponse response = channel.attr(RESPONSE_KEY).get();
+            if(response == null) {
+                System.out.println("未收到服务端响应");
+                return RpcResponse.fail(500, "未收到响应");
+            }
+            
+            System.out.println("成功获取响应: " + response);
+            return response;
         } catch (InterruptedException e) {
-            e.printStackTrace();
+            System.out.println("连接服务失败: " + e.getMessage());
+            return RpcResponse.fail(500, "连接失败");
+        } finally {
+            // 只关闭当前通道，不关闭事件循环组
+            if (channel != null) {
+                channel.close();
+            }
         }
-        return null;
     }
 }
