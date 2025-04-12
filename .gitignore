@@ -39,3 +39,4 @@ build/
 
 ### project ignore
 ./src/main/java/alg/
+user_data.json

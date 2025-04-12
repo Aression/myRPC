@@ -19,7 +19,7 @@ public class NettyServerInitializer extends ChannelInitializer<SocketChannel> {
         // 使用自定义编解码器
         // 编解码器内部通过规约写入流的顺序构建协议体
         pipeline.addLast(new Decoder());
-        pipeline.addLast(new Encoder(1));
+        pipeline.addLast(new Encoder(0));
         // 业务逻辑处理
         pipeline.addLast(new NettyServerHandler(serviceProvider));
     }
