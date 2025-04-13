@@ -2,6 +2,7 @@ package common.serializer;
 
 import common.serializer.impl.JsonSerializer;
 import common.serializer.impl.ObjectSerializer;
+import common.serializer.impl.ProtobufSerializer;
 
 public interface Serializer {
     // 把对象序列化成字节数组
@@ -20,6 +21,8 @@ public interface Serializer {
                 return new ObjectSerializer();
             case 1:
                 return new JsonSerializer();
+            case 2:
+                return new ProtobufSerializer();
             default:
                 return null;
         }

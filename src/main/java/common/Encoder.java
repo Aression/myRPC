@@ -6,6 +6,7 @@ import common.message.RpcResponse;
 import common.serializer.Serializer;
 import common.serializer.impl.JsonSerializer;
 import common.serializer.impl.ObjectSerializer;
+import common.serializer.impl.ProtobufSerializer;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.MessageToByteEncoder;
@@ -44,8 +45,12 @@ public class Encoder extends MessageToByteEncoder<Object> {
             case 1:
                 this.serializer = new JsonSerializer();
                 break;
+            case 2:
+                this.serializer = new ProtobufSerializer();
+                break;
+                
             default:
-                // 默认采用json序列化
+                System.out.println("未识别的序列化方式, 默认采用json序列化。");
                 this.serializer = new JsonSerializer();
                 break;
         }

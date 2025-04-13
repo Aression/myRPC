@@ -2,6 +2,7 @@ package client;
 
 import client.proxy.ClientProxy;
 import common.pojo.User;
+import common.result.Result;
 import common.service.UserService;
 
 import java.util.Random;
@@ -60,16 +61,16 @@ public class MixedOperationTest {
                         if (random.nextDouble() < INSERT_RATIO) {
                             // 插入操作
                             User user = generateRealisticUser(j);
-                            Integer result = userService.insertUserId(user);
-                            if (result != null && result != -1) {
+                            Result<Integer> result = userService.insertUserId(user);
+                            if (result.isSuccess() && result.getData() != null) {
                                 insertSuccessCount.incrementAndGet();
                             } else {
                                 insertFailureCount.incrementAndGet();
                             }
                         } else {
                             // 删除操作
-                            boolean success = userService.deleteUserById(j);
-                            if (success) {
+                            Result<Boolean> result = userService.deleteUserById(j);
+                            if (result.isSuccess() && Boolean.TRUE.equals(result.getData())) {
                                 deleteSuccessCount.incrementAndGet();
                             } else {
                                 deleteFailureCount.incrementAndGet();

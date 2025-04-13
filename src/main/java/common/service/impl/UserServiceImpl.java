@@ -1,6 +1,7 @@
 package common.service.impl;
 
 import common.pojo.User;
+import common.result.Result;
 import common.service.UserService;
 import common.util.JsonFileUtil;
 
@@ -18,8 +19,13 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
-    public User getUserById(Integer id) {
+    public Result<User> getUserById(Integer id) {
         System.out.println("客户端查询了id=" + id + "的用户");
+        
+        if (id == null) {
+            return Result.fail(400, "用户ID不能为空");
+        }
+        
         User user = userStore.stream()
                 .filter(u -> u.getId().equals(id))
                 .findFirst()
@@ -27,23 +33,29 @@ public class UserServiceImpl implements UserService {
         
         if (user == null) {
             System.out.println("未找到id=" + id + "的用户");
-            return null;
+            return Result.fail(404, "未找到指定用户");
         }
+        
         System.out.println("找到用户: " + user);
-        return user;
+        return Result.success(user, "查询用户成功");
     }
 
     @Override
-    public Integer insertUserId(User user) {
+    public Result<Integer> insertUserId(User user) {
         if (user == null) {
             System.out.println("插入用户失败：用户对象为空");
-            return -1;
+            return Result.fail(400, "用户对象不能为空");
+        }
+        
+        if (user.getId() == null) {
+            System.out.println("插入用户失败：用户ID不能为空");
+            return Result.fail(400, "用户ID不能为空");
         }
         
         // 检查用户是否已存在
         if (userStore.stream().anyMatch(u -> u.getId().equals(user.getId()))) {
             System.out.println("插入用户失败：用户ID已存在");
-            return -1;
+            return Result.fail(409, "用户ID已存在");
         }
         
         System.out.println("客户端插入数据：" + user);
@@ -53,11 +65,29 @@ public class UserServiceImpl implements UserService {
         JsonFileUtil.saveAllUsers(userStore);
         System.out.println("用户数据已保存到文件");
         
-        return user.getId();
+        return Result.success(user.getId(), "用户添加成功");
     }
 
     @Override
-    public boolean deleteUserById(Integer id) {
-        return userStore.removeIf(user -> user.getId().equals(id));
+    public Result<Boolean> deleteUserById(Integer id) {
+        if (id == null) {
+            return Result.fail(400, "用户ID不能为空");
+        }
+        
+        // 检查用户是否存在
+        boolean exists = userStore.stream().anyMatch(u -> u.getId().equals(id));
+        if (!exists) {
+            return Result.fail(404, "用户不存在");
+        }
+        
+        boolean success = userStore.removeIf(user -> user.getId().equals(id));
+        
+        if (success) {
+            // 保存到文件
+            JsonFileUtil.saveAllUsers(userStore);
+            return Result.success(true, "用户删除成功");
+        } else {
+            return Result.fail(500, "用户删除失败");
+        }
     }
 }

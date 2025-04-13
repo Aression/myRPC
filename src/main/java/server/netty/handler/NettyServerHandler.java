@@ -2,6 +2,7 @@ package server.netty.handler;
 
 import common.message.RpcRequest;
 import common.message.RpcResponse;
+import common.result.Result;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
 import lombok.AllArgsConstructor;
@@ -55,7 +56,18 @@ public class NettyServerHandler extends SimpleChannelInboundHandler<RpcRequest> 
             //通过反射调用方法
             Object invoke = method.invoke(service, rpcRequest.getParams());
             System.out.println("方法调用成功，返回结果: " + invoke);
-            return RpcResponse.success(invoke);
+            
+            // 如果返回值是Result类型，根据Result状态转换为RpcResponse
+            if (invoke instanceof Result) {
+                Result<?> result = (Result<?>) invoke;
+                if (result.isSuccess()) {
+                    return RpcResponse.success(result.getData());
+                } else {
+                    return RpcResponse.fail(result.getCode(), result.getMessage());
+                }
+            } else {
+                return RpcResponse.success(invoke);
+            }
         }catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException e) {
             // 找不到请求的方法or方法无法访问or方法执行过程中出错
             e.printStackTrace();

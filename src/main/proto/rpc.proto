@@ -1,0 +1,17 @@
+syntax = "proto3";
+
+package common.message;
+
+message RpcRequest {
+    string interfaceName = 1;  // 添加interfaceName字段
+    string methodName = 2;
+    repeated string params = 3;
+    repeated string paramsType = 4;
+}
+
+message RpcResponse {
+    string data = 1;
+    string dataType = 2;
+    int32 code = 3;      // 添加code字段
+    string message = 4;  // 添加message字段
+}
