@@ -7,11 +7,13 @@ message RpcRequest {
     string methodName = 2;
     repeated string params = 3;
     repeated string paramsType = 4;
+    int64 timestamp = 5;       // 添加时间戳字段，用于负载均衡
 }
 
 message RpcResponse {
     string data = 1;
     string dataType = 2;
-    int32 code = 3;      // 添加code字段
-    string message = 4;  // 添加message字段
+    int32 code = 3;            // 添加code字段
+    string message = 4;        // 添加message字段
+    string serverAddress = 5;  // 添加服务器地址字段
 }

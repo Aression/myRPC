@@ -110,6 +110,16 @@ public final class Rpc {
      */
     com.google.protobuf.ByteString
         getParamsTypeBytes(int index);
+
+    /**
+     * <pre>
+     * 添加时间戳字段，用于负载均衡
+     * </pre>
+     *
+     * <code>int64 timestamp = 5;</code>
+     * @return The timestamp.
+     */
+    long getTimestamp();
   }
   /**
    * Protobuf type {@code common.message.RpcRequest}
@@ -314,6 +324,21 @@ public final class Rpc {
       return paramsType_.getByteString(index);
     }
 
+    public static final int TIMESTAMP_FIELD_NUMBER = 5;
+    private long timestamp_ = 0L;
+    /**
+     * <pre>
+     * 添加时间戳字段，用于负载均衡
+     * </pre>
+     *
+     * <code>int64 timestamp = 5;</code>
+     * @return The timestamp.
+     */
+    @java.lang.Override
+    public long getTimestamp() {
+      return timestamp_;
+    }
+
     private byte memoizedIsInitialized = -1;
     @java.lang.Override
     public final boolean isInitialized() {
@@ -339,6 +364,9 @@ public final class Rpc {
       }
       for (int i = 0; i < paramsType_.size(); i++) {
         com.google.protobuf.GeneratedMessage.writeString(output, 4, paramsType_.getRaw(i));
+      }
+      if (timestamp_ != 0L) {
+        output.writeInt64(5, timestamp_);
       }
       getUnknownFields().writeTo(output);
     }
@@ -371,6 +399,10 @@ public final class Rpc {
         size += dataSize;
         size += 1 * getParamsTypeList().size();
       }
+      if (timestamp_ != 0L) {
+        size += com.google.protobuf.CodedOutputStream
+          .computeInt64Size(5, timestamp_);
+      }
       size += getUnknownFields().getSerializedSize();
       memoizedSize = size;
       return size;
@@ -394,6 +426,8 @@ public final class Rpc {
           .equals(other.getParamsList())) return false;
       if (!getParamsTypeList()
           .equals(other.getParamsTypeList())) return false;
+      if (getTimestamp()
+          != other.getTimestamp()) return false;
       if (!getUnknownFields().equals(other.getUnknownFields())) return false;
       return true;
     }
@@ -417,6 +451,9 @@ public final class Rpc {
         hash = (37 * hash) + PARAMSTYPE_FIELD_NUMBER;
         hash = (53 * hash) + getParamsTypeList().hashCode();
       }
+      hash = (37 * hash) + TIMESTAMP_FIELD_NUMBER;
+      hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
+          getTimestamp());
       hash = (29 * hash) + getUnknownFields().hashCode();
       memoizedHashCode = hash;
       return hash;
@@ -554,6 +591,7 @@ public final class Rpc {
             com.google.protobuf.LazyStringArrayList.emptyList();
         paramsType_ =
             com.google.protobuf.LazyStringArrayList.emptyList();
+        timestamp_ = 0L;
         return this;
       }
 
@@ -601,6 +639,9 @@ public final class Rpc {
           paramsType_.makeImmutable();
           result.paramsType_ = paramsType_;
         }
+        if (((from_bitField0_ & 0x00000010) != 0)) {
+          result.timestamp_ = timestamp_;
+        }
       }
 
       @java.lang.Override
@@ -644,6 +685,9 @@ public final class Rpc {
             paramsType_.addAll(other.paramsType_);
           }
           onChanged();
+        }
+        if (other.getTimestamp() != 0L) {
+          setTimestamp(other.getTimestamp());
         }
         this.mergeUnknownFields(other.getUnknownFields());
         onChanged();
@@ -693,6 +737,11 @@ public final class Rpc {
                 paramsType_.add(s);
                 break;
               } // case 34
+              case 40: {
+                timestamp_ = input.readInt64();
+                bitField0_ |= 0x00000010;
+                break;
+              } // case 40
               default: {
                 if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                   done = true; // was an endgroup tag
@@ -1096,6 +1145,50 @@ public final class Rpc {
         return this;
       }
 
+      private long timestamp_ ;
+      /**
+       * <pre>
+       * 添加时间戳字段，用于负载均衡
+       * </pre>
+       *
+       * <code>int64 timestamp = 5;</code>
+       * @return The timestamp.
+       */
+      @java.lang.Override
+      public long getTimestamp() {
+        return timestamp_;
+      }
+      /**
+       * <pre>
+       * 添加时间戳字段，用于负载均衡
+       * </pre>
+       *
+       * <code>int64 timestamp = 5;</code>
+       * @param value The timestamp to set.
+       * @return This builder for chaining.
+       */
+      public Builder setTimestamp(long value) {
+
+        timestamp_ = value;
+        bitField0_ |= 0x00000010;
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * 添加时间戳字段，用于负载均衡
+       * </pre>
+       *
+       * <code>int64 timestamp = 5;</code>
+       * @return This builder for chaining.
+       */
+      public Builder clearTimestamp() {
+        bitField0_ = (bitField0_ & ~0x00000010);
+        timestamp_ = 0L;
+        onChanged();
+        return this;
+      }
+
       // @@protoc_insertion_point(builder_scope:common.message.RpcRequest)
     }
 
@@ -1204,6 +1297,26 @@ public final class Rpc {
      */
     com.google.protobuf.ByteString
         getMessageBytes();
+
+    /**
+     * <pre>
+     * 添加服务器地址字段
+     * </pre>
+     *
+     * <code>string serverAddress = 5;</code>
+     * @return The serverAddress.
+     */
+    java.lang.String getServerAddress();
+    /**
+     * <pre>
+     * 添加服务器地址字段
+     * </pre>
+     *
+     * <code>string serverAddress = 5;</code>
+     * @return The bytes for serverAddress.
+     */
+    com.google.protobuf.ByteString
+        getServerAddressBytes();
   }
   /**
    * Protobuf type {@code common.message.RpcResponse}
@@ -1230,6 +1343,7 @@ public final class Rpc {
       data_ = "";
       dataType_ = "";
       message_ = "";
+      serverAddress_ = "";
     }
 
     public static final com.google.protobuf.Descriptors.Descriptor
@@ -1385,6 +1499,53 @@ public final class Rpc {
       }
     }
 
+    public static final int SERVERADDRESS_FIELD_NUMBER = 5;
+    @SuppressWarnings("serial")
+    private volatile java.lang.Object serverAddress_ = "";
+    /**
+     * <pre>
+     * 添加服务器地址字段
+     * </pre>
+     *
+     * <code>string serverAddress = 5;</code>
+     * @return The serverAddress.
+     */
+    @java.lang.Override
+    public java.lang.String getServerAddress() {
+      java.lang.Object ref = serverAddress_;
+      if (ref instanceof java.lang.String) {
+        return (java.lang.String) ref;
+      } else {
+        com.google.protobuf.ByteString bs = 
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        serverAddress_ = s;
+        return s;
+      }
+    }
+    /**
+     * <pre>
+     * 添加服务器地址字段
+     * </pre>
+     *
+     * <code>string serverAddress = 5;</code>
+     * @return The bytes for serverAddress.
+     */
+    @java.lang.Override
+    public com.google.protobuf.ByteString
+        getServerAddressBytes() {
+      java.lang.Object ref = serverAddress_;
+      if (ref instanceof java.lang.String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        serverAddress_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+
     private byte memoizedIsInitialized = -1;
     @java.lang.Override
     public final boolean isInitialized() {
@@ -1411,6 +1572,9 @@ public final class Rpc {
       if (!com.google.protobuf.GeneratedMessage.isStringEmpty(message_)) {
         com.google.protobuf.GeneratedMessage.writeString(output, 4, message_);
       }
+      if (!com.google.protobuf.GeneratedMessage.isStringEmpty(serverAddress_)) {
+        com.google.protobuf.GeneratedMessage.writeString(output, 5, serverAddress_);
+      }
       getUnknownFields().writeTo(output);
     }
 
@@ -1432,6 +1596,9 @@ public final class Rpc {
       }
       if (!com.google.protobuf.GeneratedMessage.isStringEmpty(message_)) {
         size += com.google.protobuf.GeneratedMessage.computeStringSize(4, message_);
+      }
+      if (!com.google.protobuf.GeneratedMessage.isStringEmpty(serverAddress_)) {
+        size += com.google.protobuf.GeneratedMessage.computeStringSize(5, serverAddress_);
       }
       size += getUnknownFields().getSerializedSize();
       memoizedSize = size;
@@ -1456,6 +1623,8 @@ public final class Rpc {
           != other.getCode()) return false;
       if (!getMessage()
           .equals(other.getMessage())) return false;
+      if (!getServerAddress()
+          .equals(other.getServerAddress())) return false;
       if (!getUnknownFields().equals(other.getUnknownFields())) return false;
       return true;
     }
@@ -1475,6 +1644,8 @@ public final class Rpc {
       hash = (53 * hash) + getCode();
       hash = (37 * hash) + MESSAGE_FIELD_NUMBER;
       hash = (53 * hash) + getMessage().hashCode();
+      hash = (37 * hash) + SERVERADDRESS_FIELD_NUMBER;
+      hash = (53 * hash) + getServerAddress().hashCode();
       hash = (29 * hash) + getUnknownFields().hashCode();
       memoizedHashCode = hash;
       return hash;
@@ -1610,6 +1781,7 @@ public final class Rpc {
         dataType_ = "";
         code_ = 0;
         message_ = "";
+        serverAddress_ = "";
         return this;
       }
 
@@ -1655,6 +1827,9 @@ public final class Rpc {
         if (((from_bitField0_ & 0x00000008) != 0)) {
           result.message_ = message_;
         }
+        if (((from_bitField0_ & 0x00000010) != 0)) {
+          result.serverAddress_ = serverAddress_;
+        }
       }
 
       @java.lang.Override
@@ -1685,6 +1860,11 @@ public final class Rpc {
         if (!other.getMessage().isEmpty()) {
           message_ = other.message_;
           bitField0_ |= 0x00000008;
+          onChanged();
+        }
+        if (!other.getServerAddress().isEmpty()) {
+          serverAddress_ = other.serverAddress_;
+          bitField0_ |= 0x00000010;
           onChanged();
         }
         this.mergeUnknownFields(other.getUnknownFields());
@@ -1733,6 +1913,11 @@ public final class Rpc {
                 bitField0_ |= 0x00000008;
                 break;
               } // case 34
+              case 42: {
+                serverAddress_ = input.readStringRequireUtf8();
+                bitField0_ |= 0x00000010;
+                break;
+              } // case 42
               default: {
                 if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                   done = true; // was an endgroup tag
@@ -2030,6 +2215,98 @@ public final class Rpc {
         return this;
       }
 
+      private java.lang.Object serverAddress_ = "";
+      /**
+       * <pre>
+       * 添加服务器地址字段
+       * </pre>
+       *
+       * <code>string serverAddress = 5;</code>
+       * @return The serverAddress.
+       */
+      public java.lang.String getServerAddress() {
+        java.lang.Object ref = serverAddress_;
+        if (!(ref instanceof java.lang.String)) {
+          com.google.protobuf.ByteString bs =
+              (com.google.protobuf.ByteString) ref;
+          java.lang.String s = bs.toStringUtf8();
+          serverAddress_ = s;
+          return s;
+        } else {
+          return (java.lang.String) ref;
+        }
+      }
+      /**
+       * <pre>
+       * 添加服务器地址字段
+       * </pre>
+       *
+       * <code>string serverAddress = 5;</code>
+       * @return The bytes for serverAddress.
+       */
+      public com.google.protobuf.ByteString
+          getServerAddressBytes() {
+        java.lang.Object ref = serverAddress_;
+        if (ref instanceof String) {
+          com.google.protobuf.ByteString b = 
+              com.google.protobuf.ByteString.copyFromUtf8(
+                  (java.lang.String) ref);
+          serverAddress_ = b;
+          return b;
+        } else {
+          return (com.google.protobuf.ByteString) ref;
+        }
+      }
+      /**
+       * <pre>
+       * 添加服务器地址字段
+       * </pre>
+       *
+       * <code>string serverAddress = 5;</code>
+       * @param value The serverAddress to set.
+       * @return This builder for chaining.
+       */
+      public Builder setServerAddress(
+          java.lang.String value) {
+        if (value == null) { throw new NullPointerException(); }
+        serverAddress_ = value;
+        bitField0_ |= 0x00000010;
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * 添加服务器地址字段
+       * </pre>
+       *
+       * <code>string serverAddress = 5;</code>
+       * @return This builder for chaining.
+       */
+      public Builder clearServerAddress() {
+        serverAddress_ = getDefaultInstance().getServerAddress();
+        bitField0_ = (bitField0_ & ~0x00000010);
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * 添加服务器地址字段
+       * </pre>
+       *
+       * <code>string serverAddress = 5;</code>
+       * @param value The bytes for serverAddress to set.
+       * @return This builder for chaining.
+       */
+      public Builder setServerAddressBytes(
+          com.google.protobuf.ByteString value) {
+        if (value == null) { throw new NullPointerException(); }
+        checkByteStringIsUtf8(value);
+        serverAddress_ = value;
+        bitField0_ |= 0x00000010;
+        onChanged();
+        return this;
+      }
+
       // @@protoc_insertion_point(builder_scope:common.message.RpcResponse)
     }
 
@@ -2101,11 +2378,12 @@ public final class Rpc {
   static {
     java.lang.String[] descriptorData = {
       "\n\030src/main/proto/rpc.proto\022\016common.messa" +
-      "ge\"[\n\nRpcRequest\022\025\n\rinterfaceName\030\001 \001(\t\022" +
+      "ge\"n\n\nRpcRequest\022\025\n\rinterfaceName\030\001 \001(\t\022" +
       "\022\n\nmethodName\030\002 \001(\t\022\016\n\006params\030\003 \003(\t\022\022\n\np" +
-      "aramsType\030\004 \003(\t\"L\n\013RpcResponse\022\014\n\004data\030\001" +
-      " \001(\t\022\020\n\010dataType\030\002 \001(\t\022\014\n\004code\030\003 \001(\005\022\017\n\007" +
-      "message\030\004 \001(\tb\006proto3"
+      "aramsType\030\004 \003(\t\022\021\n\ttimestamp\030\005 \001(\003\"c\n\013Rp" +
+      "cResponse\022\014\n\004data\030\001 \001(\t\022\020\n\010dataType\030\002 \001(" +
+      "\t\022\014\n\004code\030\003 \001(\005\022\017\n\007message\030\004 \001(\t\022\025\n\rserv" +
+      "erAddress\030\005 \001(\tb\006proto3"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,
@@ -2116,13 +2394,13 @@ public final class Rpc {
     internal_static_common_message_RpcRequest_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_common_message_RpcRequest_descriptor,
-        new java.lang.String[] { "InterfaceName", "MethodName", "Params", "ParamsType", });
+        new java.lang.String[] { "InterfaceName", "MethodName", "Params", "ParamsType", "Timestamp", });
     internal_static_common_message_RpcResponse_descriptor =
       getDescriptor().getMessageTypes().get(1);
     internal_static_common_message_RpcResponse_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_common_message_RpcResponse_descriptor,
-        new java.lang.String[] { "Data", "DataType", "Code", "Message", });
+        new java.lang.String[] { "Data", "DataType", "Code", "Message", "ServerAddress", });
     descriptor.resolveAllFeaturesImmutable();
   }
 
