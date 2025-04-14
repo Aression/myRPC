@@ -34,4 +34,19 @@ public class RandomLoadBalance implements LoadBalance {
         String[] parts = address.split(":");
         return new InetSocketAddress(parts[0], Integer.parseInt(parts[1]));
     }
+
+	@Override
+	public InetSocketAddress select(String serviceName, List<String> addressList, String featureCode) {
+        // 保持同样的实现
+		if (addressList == null || addressList.isEmpty()) {
+            return null;
+        }
+        
+        // 随机选择一个地址
+        int index = random.nextInt(addressList.size());
+        String address = addressList.get(index);
+        
+        // 解析地址为InetSocketAddress并返回
+        return parseAddress(address);
+	}
 } 

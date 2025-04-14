@@ -53,8 +53,11 @@ public class NettyRpcClient implements RpcClient {
         try {
             RpcRequestContext.setCurrentRequest(request);
             
-            // 从zookeeper注册中心获取host和port
-            InetSocketAddress addr = serviceCenter.serviceDiscovery(request.getInterfaceName());
+            // 从zookeeper注册中心获取host和port，传入特征码
+            InetSocketAddress addr = serviceCenter.serviceDiscovery(
+                    request.getInterfaceName(), 
+                    request.getFeatureCode());
+                    
             if(addr == null) {
                 System.out.println("无法找到服务 " + request.getInterfaceName() + " 的可用节点");
                 return RpcResponse.fail(404, "服务不可用");

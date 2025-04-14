@@ -46,6 +46,11 @@ public class ZKServiceCenter implements ServiceCenter{
 
     @Override
     public InetSocketAddress serviceDiscovery(String serviceName) {
+        return serviceDiscovery(serviceName, null);
+    }
+    
+    @Override
+    public InetSocketAddress serviceDiscovery(String serviceName, String featureCode) {
         try{
             // 检查服务是否存在
             if(client.checkExists().forPath("/"+serviceName) == null) {
@@ -74,7 +79,14 @@ public class ZKServiceCenter implements ServiceCenter{
             }
             
             // 使用负载均衡策略选择服务节点
-            InetSocketAddress socketAddress = loadBalance.select(serviceName, addressList);
+            InetSocketAddress socketAddress;
+            // 根据是否有特征码决定使用哪个select方法
+            if (featureCode != null && !featureCode.isEmpty()) {
+                socketAddress = loadBalance.select(serviceName, addressList, featureCode);
+            } else {
+                socketAddress = loadBalance.select(serviceName, addressList);
+            }
+            
             System.out.println("选择服务节点: " + socketAddress);
             
             return socketAddress;
