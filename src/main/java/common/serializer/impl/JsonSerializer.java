@@ -3,30 +3,32 @@ package common.serializer.impl;
 import common.message.RpcRequest;
 import common.message.RpcResponse;
 import common.serializer.Serializer;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
 
 public class JsonSerializer implements Serializer{
+    private static final Logger logger = LoggerFactory.getLogger(JsonSerializer.class);
 
     @Override
     public byte[] serialize(Object obj) {
         try {
-            System.out.println("开始序列化对象: " + obj.getClass().getName());
+            logger.info("开始序列化对象: {}", obj.getClass().getName());
             byte[] bytes = JSONObject.toJSONBytes(obj);
-            System.out.println("序列化完成，数据长度: " + bytes.length);
+            logger.info("序列化完成，数据长度: {}", bytes.length);
             return bytes;
         } catch (Exception e) {
-            System.out.println("序列化失败: " + e.getMessage());
-            e.printStackTrace();
-            throw new RuntimeException("序列化失败", e);
+            logger.error("序列化失败: {}", e.getMessage(), e);
+            return null;
         }
     }
 
     @Override
     public Object deserialize(byte[] bytes, int messageType) {
         try {
-            System.out.println("开始反序列化，消息类型: " + messageType);
+            logger.info("开始反序列化，消息类型: {}", messageType);
             Object obj = null;
             switch (messageType) {
                 case 0:
@@ -60,15 +62,14 @@ public class JsonSerializer implements Serializer{
                     obj = response;
                     break;
                 default:
-                    System.out.println("不支持的消息类型: " + messageType);
-                    throw new RuntimeException("不支持的消息类型: " + messageType);
+                    logger.error("不支持的消息类型: {}", messageType);
+                    return null;
             }
-            System.out.println("反序列化完成: " + obj);
+            logger.info("反序列化完成: {}", obj);
             return obj;
         } catch (Exception e) {
-            System.out.println("反序列化失败: " + e.getMessage());
-            e.printStackTrace();
-            throw new RuntimeException("反序列化失败", e);
+            logger.error("反序列化失败: {}", e.getMessage(), e);
+            return null;
         }
     }
 

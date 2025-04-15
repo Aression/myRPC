@@ -118,3 +118,89 @@
 5. 修改了RPC协议消息体的data字段：
     - request：增加了通过时间戳生成的请求指纹以便一致性哈希策略进行请求分配
     - response：增加了ip：port字段，便于请求端统计负载均衡情况
+
+### version 6 幂等性服务重试+client侧半开器熔断+server侧令牌桶限流
+1. 实现了服务重试机制，支持幂等性服务的自动重试：
+   ```java
+   Retryer<RpcResponse> retryer = RetryerBuilder.<RpcResponse>newBuilder()
+                //无论出现什么异常，都进行重试
+                .retryIfException()
+                //返回结果为 error时进行重试
+                .retryIfResult(response -> Objects.equals(response.getCode(), 500))
+                //重试等待策略：等待 2s 后再进行重试
+                .withWaitStrategy(WaitStrategies.fixedWait(2, TimeUnit.SECONDS))
+                //重试停止策略：重试达到 3 次
+                .withStopStrategy(StopStrategies.stopAfterAttempt(3))
+                .withRetryListener(new RetryListener() {
+                    @Override
+                    public <V> void onRetry(Attempt<V> attempt) {
+                        System.out.println("RetryListener: 第" + attempt.getAttemptNumber() + "次调用");
+                    }
+                })
+                .build();
+   ```
+   - 服务端手动指定服务是否是幂等的，在上线服务的时候控制是否可以自动重试；
+   - 
+
+2. 引入了熔断器模式，防止故障扩散：
+   - 三种状态：关闭(CLOSED)、开启(OPEN)、半开(HALF_OPEN)
+   - 关键参数：
+     ```java
+        failureThreshold: 失败次数阈值
+        half2OpenSuccessRate: 半开状态恢复所需成功率
+        retryTimePeriod: 熔断恢复等待时间
+     ```
+   - 核心方法：
+     ```java
+        allowRequest(): 判断请求是否允许通过
+        recordSuccess(): 记录成功请求
+        recordFailure(): 记录失败请求
+     ```
+     两个记录方法在clientproxy中完成请求后执行：
+     ```java
+        // 状态码5xx以及429(熔断器被触发)视为失败请求
+        if(response.getCode()/100==5 || response.getCode()==429) breaker.recordFailure();
+        // 状态码2xx和4xx都视为成功请求
+        else if(response.getCode()/100==2 || response.getCode()/100==4) breaker.recordSuccess();
+        // 对于非Result类型的返回，直接返回响应数据
+        return response.getData();
+     ```
+
+3. 实现了基于令牌桶算法的限流器：
+   - 关键参数：
+     ```java
+        private static int waitTimeRate; // 决定是否重新生成令牌的等待时间阈值
+        private static int bucketCapacity; // 令牌桶容量上限
+        private volatile int curCapacity; // 当前的令牌桶容量
+     ```
+   - 工作原理：
+     ```java
+        @Override
+        public synchronized boolean getToken(){
+            if(curCapacity>0){
+                curCapacity--;
+                return true; // 令牌桶有容量，拿走一个令牌并返回true
+            }
+            long currentTime = System.currentTimeMillis();
+            if(currentTime - lastAccessTime>=waitTimeRate){
+                // 令牌桶没有剩余令牌
+                // 则根据距离上次请求过去的时间计算等待时间中生成的令牌数量，更新当前令牌数
+                if((currentTime-lastAccessTime)/waitTimeRate>=2){
+                    curCapacity += (int)(currentTime-lastAccessTime)/waitTimeRate-1;
+                }
+
+                // 保持桶容量不超过上限
+                if(curCapacity>bucketCapacity) curCapacity = bucketCapacity;
+                
+                // 更新最后一次访问时间并返回
+                lastAccessTime = currentTime;
+                return true;
+            }
+            return false; 
+        }
+     ```
+
+4. 其他事项：
+    - 迁移大部分命令行输出到slf4j+logback
+    - 迁移文件数据存储结构
+    - 完善部分文档

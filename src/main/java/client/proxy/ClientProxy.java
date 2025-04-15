@@ -1,11 +1,10 @@
 package client.proxy;
 
+import client.proxy.breaker.Breaker;
+import client.proxy.breaker.BreakerProvider;
 import client.retry.GuavaRetry;
 import client.rpcClient.RpcClient;
 import client.rpcClient.impl.NettyRpcClient;
-import client.rpcClient.impl.SimpleSocketRpcClient;
-import client.serviceCenter.ServiceCenter;
-import client.serviceCenter.ZKServiceCenter;
 import client.serviceCenter.balance.LoadBalanceFactory;
 import common.message.RpcRequest;
 import common.message.RpcResponse;
@@ -17,6 +16,9 @@ import java.lang.reflect.Method;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Proxy;
 import java.lang.reflect.Type;
+
+import org.slf4j.*;
+
 import com.alibaba.fastjson.JSON;
 
 /*
@@ -25,14 +27,19 @@ import com.alibaba.fastjson.JSON;
  */
 @AllArgsConstructor
 public class ClientProxy implements InvocationHandler {
+    private static final Logger logger = LoggerFactory.getLogger(ClientProxy.class);
+
     private RpcClient rpcClient;
+    private BreakerProvider breakerProvider;
 
     public ClientProxy(){
         rpcClient = new NettyRpcClient();
+        breakerProvider = new BreakerProvider();
     }
     
     public ClientProxy(LoadBalanceFactory.BalanceType balanceType){
         rpcClient = new NettyRpcClient(balanceType);
+        breakerProvider = new BreakerProvider();
     }
     
     // JDK动态代理，每一次代理对象调用方法，会经过此方法增强（反射获取request对象，发送到服务端）
@@ -46,7 +53,13 @@ public class ClientProxy implements InvocationHandler {
                 .paramsType(method.getParameterTypes())
                 .timestamp(System.currentTimeMillis())
                 .build();
-        
+
+        // 获取方法对应熔断器
+        Breaker breaker = breakerProvider.getBreaker(method.getName());
+        if (!breaker.allowRequest()) {
+            return null; // 熔断器不允许通过，返回空响应 TODO：进行特殊处理
+        }
+
         // 为白名单服务发送带重试请求；否则直接发送不可重试请求
         RpcResponse response;
         if(rpcClient.checkRetry(request.getInterfaceName())){
@@ -57,13 +70,13 @@ public class ClientProxy implements InvocationHandler {
         
         // 处理结果
         if (response == null) {
-            System.out.println("服务调用失败，返回空响应");
+            logger.warn("服务调用失败，返回空响应");
             return null;
         }
         
         // 记录服务器信息到客户端日志，便于测试统计
         if (response.getServerAddress() != null && !response.getServerAddress().isEmpty()) {
-            System.out.println("请求路由到服务器: " + response.getServerAddress());
+            logger.info("请求路由到服务器: " + response.getServerAddress());
         }
         
         // 获取方法返回类型
@@ -115,7 +128,10 @@ public class ClientProxy implements InvocationHandler {
                 }
             }
         }
-        
+        // 状态码5xx以及429(熔断器被触发)视为失败请求
+        if(response.getCode()/100==5 || response.getCode()==429) breaker.recordFailure();
+        // 状态码2xx和4xx都视为成功请求
+        else if(response.getCode()/100==2 || response.getCode()/100==4) breaker.recordSuccess();
         // 对于非Result类型的返回，直接返回响应数据
         return response.getData();
     }

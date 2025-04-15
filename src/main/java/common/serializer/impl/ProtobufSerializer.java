@@ -6,17 +6,18 @@ import common.message.RpcResponse;
 import common.serializer.Serializer;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.MessageLite;
-import com.google.protobuf.Parser;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-import java.util.ArrayList;
 import java.util.List;
 
 public class ProtobufSerializer implements Serializer {
+    private static final Logger logger = LoggerFactory.getLogger(ProtobufSerializer.class);
 
     @Override
     public byte[] serialize(Object obj) {
         try {
-            System.out.println("开始序列化对象: " + obj.getClass().getName());
+            logger.info("开始序列化对象: {}", obj.getClass().getName());
             
             // 处理RpcRequest
             if (obj instanceof RpcRequest) {
@@ -65,7 +66,7 @@ public class ProtobufSerializer implements Serializer {
                 
                 Rpc.RpcRequest protoRequest = builder.build();
                 byte[] bytes = protoRequest.toByteArray();
-                System.out.println("序列化完成，数据长度: " + bytes.length);
+                logger.info("序列化完成，数据长度: {}", bytes.length);
                 return bytes;
             } 
             // 处理RpcResponse
@@ -108,29 +109,28 @@ public class ProtobufSerializer implements Serializer {
                 
                 Rpc.RpcResponse protoResponse = builder.build();
                 byte[] bytes = protoResponse.toByteArray();
-                System.out.println("序列化完成，数据长度: " + bytes.length);
+                logger.info("序列化完成，数据长度: {}", bytes.length);
                 return bytes;
             }
             // 处理直接的Protocol Buffers消息
             else if (obj instanceof MessageLite) {
                 byte[] bytes = ((MessageLite) obj).toByteArray();
-                System.out.println("序列化完成，数据长度: " + bytes.length);
+                logger.info("序列化完成，数据长度: {}", bytes.length);
                 return bytes;
             } 
             else {
                 throw new IllegalArgumentException("不支持的对象类型: " + obj.getClass().getName());
             }
         } catch (Exception e) {
-            System.out.println("序列化失败: " + e.getMessage());
-            e.printStackTrace();
-            throw new RuntimeException("序列化失败", e);
+            logger.error("序列化失败: {}", e.getMessage(), e);
+            return null;
         }
     }
 
     @Override
     public Object deserialize(byte[] bytes, int messageType) {
         try {
-            System.out.println("开始反序列化，消息类型: " + messageType);
+            logger.info("开始反序列化，消息类型: {}", messageType);
             Object obj = null;
             switch (messageType) {
                 case 0:
@@ -187,16 +187,16 @@ public class ProtobufSerializer implements Serializer {
                                 // 对于复杂对象，使用JSON反序列化
                                 try {
                                     params[i] = com.alibaba.fastjson.JSON.parseObject(paramStr, paramType);
-                                    System.out.println("成功反序列化复杂对象: " + params[i]);
+                                    logger.info("成功反序列化复杂对象: {}", params[i]);
                                 } catch (Exception jsonEx) {
-                                    System.out.println("JSON反序列化失败，尝试使用默认构造函数: " + jsonEx.getMessage());
+                                    logger.info("JSON反序列化失败，尝试使用默认构造函数: {}", jsonEx.getMessage());
                                     // 如果JSON反序列化失败，尝试使用反射创建对象并设置属性
                                     Object instance = paramType.getDeclaredConstructor().newInstance();
                                     params[i] = instance;
                                 }
                             }
                         } catch (Exception e) {
-                            System.out.println("参数转换失败: " + e.getMessage());
+                            logger.error("参数转换失败: {}", e.getMessage(), e);
                             e.printStackTrace();
                             // 转换失败不要直接使用原字符串，而是返回null或默认值
                             try {
@@ -250,7 +250,7 @@ public class ProtobufSerializer implements Serializer {
                             javaResponse.setDataType(dataType);
                             
                             String dataStr = protoResponse.getData();
-                            System.out.println("数据类型: " + dataType.getName() + ", 数据内容: " + dataStr);
+                            logger.info("数据类型: {}, 数据内容: {}", dataType.getName(), dataStr);
                             
                             // 根据数据类型进行转换
                             if (dataType == String.class) {
@@ -272,30 +272,30 @@ public class ProtobufSerializer implements Serializer {
                                         // 复杂对象使用JSON反序列化
                                         Object resultObj = com.alibaba.fastjson.JSON.parseObject(dataStr, dataType);
                                         javaResponse.setData(resultObj);
-                                        System.out.println("成功使用JSON反序列化复杂对象: " + resultObj);
+                                        logger.info("成功使用JSON反序列化复杂对象: {}", resultObj);
                                     } else {
                                         throw new Exception("数据不是有效的JSON格式: " + dataStr);
                                     }
                                 } catch (Exception jsonEx) {
-                                    System.out.println("JSON反序列化失败: " + jsonEx.getMessage());
+                                    logger.info("JSON反序列化失败: {}", jsonEx.getMessage());
                                     // 尝试使用反射创建对象
                                     try {
                                         Object instance = dataType.getDeclaredConstructor().newInstance();
                                         javaResponse.setData(instance);
-                                        System.out.println("使用默认构造函数创建对象: " + instance);
+                                        logger.info("使用默认构造函数创建对象: {}", instance);
                                     } catch (Exception reflectEx) {
-                                        System.out.println("无法创建对象实例: " + reflectEx.getMessage());
+                                        logger.info("无法创建对象实例: {}", reflectEx.getMessage());
                                         javaResponse.setData(dataStr);
                                     }
                                 }
                             }
                         } catch (ClassNotFoundException e) {
-                            System.out.println("找不到类: " + dataTypeStr);
+                            logger.error("找不到类: {}", dataTypeStr);
                             e.printStackTrace();
                             javaResponse.setDataType(String.class);
                             javaResponse.setData(protoResponse.getData());
                         } catch (Exception e) {
-                            System.out.println("数据类型转换失败: " + e.getMessage());
+                            logger.error("数据类型转换失败: {}", e.getMessage());
                             e.printStackTrace();
                             javaResponse.setData(protoResponse.getData()); // 转换失败时保留原始字符串
                         }
@@ -307,13 +307,13 @@ public class ProtobufSerializer implements Serializer {
                     break;
                     
                 default:
-                    System.out.println("不支持的消息类型: " + messageType);
+                    logger.error("不支持的消息类型: {}", messageType);
                     throw new RuntimeException("不支持的消息类型: " + messageType);
             }
-            System.out.println("反序列化完成: " + obj);
+            logger.info("反序列化完成: {}", obj);
             return obj;
         } catch (InvalidProtocolBufferException e) {
-            System.out.println("反序列化失败: " + e.getMessage());
+            logger.error("反序列化失败: {}", e.getMessage(), e);
             e.printStackTrace();
             throw new RuntimeException("反序列化失败", e);
         }

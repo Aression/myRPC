@@ -9,16 +9,19 @@ import io.netty.util.internal.ThreadLocalRandom;
 import org.apache.curator.RetryPolicy;
 import org.apache.curator.framework.CuratorFramework;
 import org.apache.curator.framework.CuratorFrameworkFactory;
-import org.apache.curator.framework.recipes.cache.PathChildrenCache;
-import org.apache.curator.framework.recipes.cache.PathChildrenCacheEvent;
+import org.apache.curator.framework.recipes.cache.CuratorCache;
+import org.apache.curator.framework.recipes.cache.CuratorCacheListener;
 import org.apache.curator.retry.ExponentialBackoffRetry;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.net.InetSocketAddress;
 import java.util.ArrayList;
 import java.util.List;
 
 public class ZKServiceCenter implements ServiceCenter{
-    private CuratorFramework client; // zookeeper 客户端
+    private static final Logger logger = LoggerFactory.getLogger(ZKServiceCenter.class);
+    private final CuratorFramework client;
     private static final String ROOT_PATH="MY_RPC"; // zookeeper根路径节点
     private static final String RETRY_GROUP = "CanRetry"; //可重试服务组名称，不在该组的服务不进行重试
 
@@ -48,7 +51,7 @@ public class ZKServiceCenter implements ServiceCenter{
         this.client.start();
         this.loadBalance = loadBalance;
         this.serviceAddressCache = ZKCache.getInstance();
-        System.out.println("Zookeeper 连接成功");
+        logger.info("Zookeeper 连接成功");
     }
 
     @Override
@@ -61,7 +64,7 @@ public class ZKServiceCenter implements ServiceCenter{
         try{
             // 检查服务是否存在
             if(client.checkExists().forPath("/"+serviceName) == null) {
-                System.out.println("服务 " + serviceName + " 未在 Zookeeper 中注册");
+                logger.warn("服务 {} 未在 Zookeeper 中注册", serviceName);
                 return null;
             }
             
@@ -78,10 +81,10 @@ public class ZKServiceCenter implements ServiceCenter{
                 registerWatcher(serviceName);
             }
             
-            System.out.println("发现服务 " + serviceName + " 的节点: " + addressList);
+            logger.info("发现服务 {} 的节点: {}", serviceName, addressList);
             
             if(addressList.isEmpty()) {
-                System.out.println("服务 " + serviceName + " 没有可用的服务节点");
+                logger.warn("服务 {} 没有可用的服务节点", serviceName);
                 return null;
             }
             
@@ -102,12 +105,11 @@ public class ZKServiceCenter implements ServiceCenter{
                 socketAddress = loadBalance.select(serviceName, inetSocketAddresList, randomFeatureCode);
             }
             
-            System.out.println("选择服务节点: " + socketAddress);
+            logger.info("选择服务节点: {}", socketAddress);
             
             return socketAddress;
         } catch (Exception e) {
-            System.out.println("服务发现失败: " + e.getMessage());
-            e.printStackTrace();
+            logger.error("服务发现失败: {}", e.getMessage(), e);
             return null;
         }
     }
@@ -117,40 +119,47 @@ public class ZKServiceCenter implements ServiceCenter{
      */
     private void registerWatcher(String serviceName) throws Exception {
         String servicePath = "/" + serviceName;
-        PathChildrenCache pathChildrenCache = new PathChildrenCache(client, servicePath, true);
-        pathChildrenCache.start();
+        CuratorCache cache = CuratorCache.build(client, servicePath);
         
         // 添加监听器
-        pathChildrenCache.getListenable().addListener((client, event) -> {
-            // 子节点数据变化时
-            if (event.getType() == PathChildrenCacheEvent.Type.CHILD_ADDED || 
-                event.getType() == PathChildrenCacheEvent.Type.CHILD_REMOVED ||
-                event.getType() == PathChildrenCacheEvent.Type.CHILD_UPDATED) {
-                
-                // 重新获取子节点并更新缓存
-                List<String> newAddressList = client.getChildren().forPath(servicePath);
-                // 清空旧缓存
-                serviceAddressCache.clear();
-                // 更新新缓存
-                for (String address : newAddressList) {
-                    serviceAddressCache.addService(serviceName, address);
-                }
-
-                // 转换为 InetSocketAddress 列表
-                List<InetSocketAddress> inetSocketNewAddressList = new ArrayList<>();
-                for (String addr : newAddressList) {
-                    inetSocketNewAddressList.add(AddressUtil.fromString(addr));
-                }
-
-                // 如果使用的是ConsistencyHashBalance，则更新哈希环
-                if (loadBalance instanceof ConsistencyHashBalance) {
-                    ((ConsistencyHashBalance) loadBalance).updateServiceAddresses(
-                            serviceName, inetSocketNewAddressList);
-                }
-                
-                System.out.println("服务 " + serviceName + " 的节点已更新: " + newAddressList);
+        CuratorCacheListener listener = CuratorCacheListener.builder()
+            .forCreates(node -> updateCache(serviceName))
+            .forDeletes(node -> updateCache(serviceName))
+            .forChanges((oldNode, newNode) -> updateCache(serviceName))
+            .build();
+            
+        cache.listenable().addListener(listener);
+        cache.start();
+    }
+    
+    private void updateCache(String serviceName) {
+        try {
+            String servicePath = "/" + serviceName;
+            List<String> newAddressList = client.getChildren().forPath(servicePath);
+            
+            // 清空旧缓存
+            serviceAddressCache.clear();
+            // 更新新缓存
+            for (String address : newAddressList) {
+                serviceAddressCache.addService(serviceName, address);
             }
-        });
+
+            // 转换为 InetSocketAddress 列表
+            List<InetSocketAddress> inetSocketNewAddressList = new ArrayList<>();
+            for (String addr : newAddressList) {
+                inetSocketNewAddressList.add(AddressUtil.fromString(addr));
+            }
+
+            // 如果使用的是ConsistencyHashBalance，则更新哈希环
+            if (loadBalance instanceof ConsistencyHashBalance) {
+                ((ConsistencyHashBalance) loadBalance).updateServiceAddresses(
+                        serviceName, inetSocketNewAddressList);
+            }
+            
+            logger.info("服务 {} 的节点已更新: {}", serviceName, newAddressList);
+        } catch (Exception e) {
+            logger.error("更新缓存失败: {}", e.getMessage(), e);
+        }
     }
 
 	@Override
@@ -160,12 +169,12 @@ public class ZKServiceCenter implements ServiceCenter{
             List<String> serviceList = client.getChildren().forPath("/"+RETRY_GROUP);
             for(String s:serviceList){
                 if(s.equals(serviceName)){
-                    System.out.println("服务"+serviceName+"在重试白名单上，允许重试");
+                    logger.info("服务{}在重试白名单上，允许重试", serviceName);
                     canRetry = true;
                 }
             }
         }catch(Exception e){
-            e.printStackTrace();
+            logger.error("检查服务重试白名单失败: {}", e.getMessage(), e);
         }
         return canRetry; // 默认返回false
 	}

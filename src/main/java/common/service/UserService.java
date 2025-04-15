@@ -16,7 +16,7 @@ public interface UserService {
      * @param user 要插入的用户
      * @return 插入结果，成功返回用户ID
      */
-    Result<Integer> insertUserId(User user);
+    Result<Integer> insertUser(User user);
     
     /**
      * 根据ID删除用户

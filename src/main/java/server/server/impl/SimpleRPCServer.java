@@ -1,6 +1,7 @@
 package server.server.impl;
 
-import lombok.AllArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import server.provider.ServiceProvider;
 import server.server.RpcServer;
 import server.server.work.WorkThread;
@@ -9,28 +10,29 @@ import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
 
-@AllArgsConstructor
 public class SimpleRPCServer implements RpcServer {
-    private ServiceProvider serviceProvider;
+    private static final Logger logger = LoggerFactory.getLogger(SimpleRPCServer.class);
+    private final ServiceProvider serviceProvider;
+
+    public SimpleRPCServer(ServiceProvider serviceProvider) {
+        this.serviceProvider = serviceProvider;
+    }
 
     @Override
     public void start(int port) {
-        try{
-            ServerSocket serverSocket = new ServerSocket(port);
-            System.out.println("服务端Socket已开启...");
-            while(true){
-                Socket socket = serverSocket.accept();// 侦听端口获取连接
-                new Thread(
-                        new WorkThread(socket, serviceProvider)
-                ).start();// 创建一个新的工作线程执行处理
+        try (ServerSocket serverSocket = new ServerSocket(port)) {
+            logger.info("服务端Socket已开启...");
+            while (true) {
+                Socket socket = serverSocket.accept();
+                new Thread(new WorkThread(socket, serviceProvider)).start();
             }
-        }catch (IOException e){
-            e.printStackTrace();
+        } catch (IOException e) {
+            logger.error("服务器启动失败: {}", e.getMessage(), e);
         }
     }
 
     @Override
     public void stop() {
-        //停止服务端
+        // 简单服务器不需要特殊处理
     }
 }

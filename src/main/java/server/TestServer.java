@@ -12,11 +12,11 @@ public class TestServer {
         UserService userService = new UserServiceImpl();
 
         //在服务提供者中上线服务并注册
-        ServiceProvider serviceProvider = new ServiceProvider("127.0.0.1",9999);
+        ServiceProvider serviceProvider = new ServiceProvider("127.0.0.1",9998);
         serviceProvider.provideServiceInterface(userService, true);
 
         //实例化服务端并启动
         RpcServer rpcServer = new NettyRPCServer(serviceProvider);
-        rpcServer.start(9999);
+        rpcServer.start(9998);
     }
 }

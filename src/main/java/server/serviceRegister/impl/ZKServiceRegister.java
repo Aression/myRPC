@@ -8,10 +8,13 @@ import org.apache.curator.framework.CuratorFrameworkFactory;
 import org.apache.curator.retry.ExponentialBackoffRetry;
 import org.apache.zookeeper.CreateMode;
 import server.serviceRegister.ServiceRegister;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.net.InetSocketAddress;
 
 public class ZKServiceRegister implements ServiceRegister {
+    private static final Logger logger = LoggerFactory.getLogger(ZKServiceRegister.class);
     private CuratorFramework client;
     private static final String ROOT_PATH = "MY_RPC";
     private static final String RETRY_GROUP = "CanRetry";
@@ -27,7 +30,7 @@ public class ZKServiceRegister implements ServiceRegister {
         this.client = CuratorFrameworkFactory.builder().connectString("127.0.0.1:2181")
                 .sessionTimeoutMs(40000).retryPolicy(policy).namespace(ROOT_PATH).build();
         this.client.start();
-        System.out.println("zookeeper 连接成功");
+        logger.info("zookeeper 连接成功");
     }
 
     @Override
@@ -64,10 +67,9 @@ public class ZKServiceRegister implements ServiceRegister {
                         .forPath(retryPath);
             }
 
-            System.out.println("服务注册成功: " + instancePath);
+            logger.info("服务注册成功: {}", instancePath);
         } catch (Exception e) {
-            System.err.println("服务注册失败: " + e.getMessage());
-            e.printStackTrace();
+            logger.error("服务注册失败: {}", e.getMessage(), e);
         }
     }
 }

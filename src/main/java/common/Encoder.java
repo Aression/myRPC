@@ -10,7 +10,8 @@ import common.serializer.impl.ProtobufSerializer;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.MessageToByteEncoder;
-import lombok.AllArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * 消息结构如下:
@@ -26,6 +27,7 @@ import lombok.AllArgsConstructor;
  * 2. 序列化类型(2字节):
  *    - 0: Java原生序列化
  *    - 1: JSON序列化
+ *    - 2: Protobuf序列化
  * 
  * 3. 数据长度(4字节):
  *    - 标识序列化后的数据长度
@@ -35,6 +37,7 @@ import lombok.AllArgsConstructor;
  */
 
 public class Encoder extends MessageToByteEncoder<Object> {
+    private static final Logger logger = LoggerFactory.getLogger(Encoder.class);
     private Serializer serializer;
 
     public Encoder(int serializerType){
@@ -50,7 +53,7 @@ public class Encoder extends MessageToByteEncoder<Object> {
                 break;
                 
             default:
-                System.out.println("未识别的序列化方式, 默认采用json序列化。");
+                logger.warn("未识别的序列化方式, 默认采用json序列化。");
                 this.serializer = new JsonSerializer();
                 break;
         }
@@ -58,33 +61,48 @@ public class Encoder extends MessageToByteEncoder<Object> {
 
     @Override
     protected void encode(ChannelHandlerContext ctx, Object msg, ByteBuf out) throws Exception {
-        try {
-            System.out.println("CORE-ENCODER: 开始编码消息: " + msg.getClass().getName());
-            
-            // 校验消息类型并写入头部
-            if(msg instanceof RpcRequest) {
-                out.writeShort(MessageType.REQUEST.getCode());
-                System.out.println("CORE-ENCODER: 消息类型为请求");
-            } else if(msg instanceof RpcResponse) {
-                out.writeShort(MessageType.RESPONSE.getCode());
-                System.out.println("CORE-ENCODER: 消息类型为响应");
-            } else {
-                throw new RuntimeException("CORE-ENCODER: 不支持的消息类型: " + msg.getClass().getName());
-            }
-
-            // 写入序列化器类型
-            out.writeShort(serializer.getType());
-            System.out.println("CORE-ENCODER: 使用序列化器类型: " + serializer.getSerializerName());
-
-            // 序列化消息并写入
-            byte[] serializedBytes = serializer.serialize(msg);
-            out.writeInt(serializedBytes.length);
-            out.writeBytes(serializedBytes);
-            System.out.println("CORE-ENCODER: 消息编码完成，总长度: " + (4 + serializedBytes.length) + " 字节");
-        } catch (Exception e) {
-            System.out.println("CORE-ENCODER: 编码失败: " + e.getMessage());
-            e.printStackTrace();
-            throw e;
+        logger.info("CORE-ENCODER: 开始编码消息: {}", msg.getClass().getName());
+        
+        // 确定消息类型
+        int messageType = 0;
+        if (msg instanceof RpcRequest) {
+            messageType = MessageType.REQUEST.getCode();
+            logger.info("CORE-ENCODER: 消息类型为请求");
+        } else if (msg instanceof RpcResponse) {
+            messageType = MessageType.RESPONSE.getCode();
+            logger.info("CORE-ENCODER: 消息类型为响应");
+        } else{
+            logger.error("CORE-ENCODER: 不支持的消息类型: {}", msg.getClass().getName());
+            throw new IllegalArgumentException("不支持的消息类型: " + msg.getClass().getName());
         }
+
+        // 序列化消息
+        byte[] serializedBytes;
+        if (serializer == null) {
+            logger.warn("未识别的序列化方式, 默认采用json序列化。");
+            serializer = new JsonSerializer();
+        }
+        logger.info("CORE-ENCODER: 使用序列化器类型: {}", serializer.getClass().getSimpleName());
+        serializedBytes = serializer.serialize(msg);
+
+        // 写入消息类型(2字节)
+        out.writeShort(messageType);
+        
+        // 写入序列化类型(2字节)
+        int serializerType = 0;
+        if (serializer instanceof JsonSerializer) {
+            serializerType = 1;
+        } else if (serializer instanceof ProtobufSerializer) {
+            serializerType = 2;
+        }
+        out.writeShort(serializerType);
+        
+        // 写入数据长度(4字节)
+        out.writeInt(serializedBytes.length);
+        
+        // 写入数据(N字节)
+        out.writeBytes(serializedBytes);
+        
+        logger.info("CORE-ENCODER: 消息编码完成，总长度: {} 字节", 8 + serializedBytes.length);
     }
 }

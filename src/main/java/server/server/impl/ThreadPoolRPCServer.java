@@ -1,5 +1,7 @@
 package server.server.impl;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import server.provider.ServiceProvider;
 import server.server.RpcServer;
 import server.server.work.WorkThread;
@@ -9,21 +11,25 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingDeque;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
 public class ThreadPoolRPCServer implements RpcServer {
-    private final ThreadPoolExecutor threadPool;
-    private ServiceProvider serviceProvider;
+    private static final Logger logger = LoggerFactory.getLogger(ThreadPoolRPCServer.class);
+    private final ExecutorService threadPool;
+    private final ServiceProvider serviceProvider;
 
     public ThreadPoolRPCServer(ServiceProvider serviceProvider) {
-        // 定义线程池属性
+        this.serviceProvider = serviceProvider;
+        // 创建线程池
         threadPool = new ThreadPoolExecutor(
                 Runtime.getRuntime().availableProcessors(),
-                1000,60, TimeUnit.SECONDS,
+                100,
+                60L,
+                TimeUnit.SECONDS,
                 new ArrayBlockingQueue<>(100)
         );
-        this.serviceProvider = serviceProvider;
     }
 
     public ThreadPoolRPCServer(
@@ -39,23 +45,21 @@ public class ThreadPoolRPCServer implements RpcServer {
         this.serviceProvider = serviceProvider;
     }
 
-
     @Override
     public void start(int port) {
-        System.out.println("多线程服务端已启动");
-        try{
-            ServerSocket serverSocket = new ServerSocket();
-            while(true){
+        try (ServerSocket serverSocket = new ServerSocket(port)) {
+            logger.info("多线程服务端已启动");
+            while (true) {
                 Socket socket = serverSocket.accept();
                 threadPool.execute(new WorkThread(socket, serviceProvider));
             }
-        } catch (IOException e){
-            e.printStackTrace();
+        } catch (IOException e) {
+            logger.error("服务器启动失败: {}", e.getMessage(), e);
         }
     }
 
     @Override
     public void stop() {
-        // do noting
+        threadPool.shutdown();
     }
 }

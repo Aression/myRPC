@@ -5,6 +5,8 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import com.alibaba.fastjson.JSON;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.Serializable;
 
@@ -13,6 +15,8 @@ import java.io.Serializable;
 @NoArgsConstructor
 @AllArgsConstructor
 public class RpcResponse implements Serializable {
+    private static final Logger logger = LoggerFactory.getLogger(RpcResponse.class);
+    private static final long serialVersionUID = 1L;
     private int code;
     private String message;
 
@@ -105,7 +109,7 @@ public class RpcResponse implements Serializable {
             dataType = data.getClass();
             
         } catch (Exception e) {
-            System.out.println("数据类型转换失败: " + e.getMessage());
+            logger.error("数据类型转换失败: " + e.getMessage());
         }
     }
 }
