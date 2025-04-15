@@ -17,7 +17,12 @@ public class LoadBalanceFactory {
         /**
          * 随机算法
          */
-        RANDOM
+        RANDOM,
+        
+        /**
+         * 基于LSTM的负载均衡算法
+         */
+        LSTM
     }
     
     /**
@@ -31,6 +36,8 @@ public class LoadBalanceFactory {
                 return new ConsistencyHashBalance();
             case RANDOM:
                 return new RandomLoadBalance();
+            case LSTM:
+                return new LSTMLoadBalance();
             default:
                 // 默认使用一致性哈希
                 return new ConsistencyHashBalance();
