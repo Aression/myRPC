@@ -1,6 +1,7 @@
 package server.serviceRegister.impl;
 
-import client.serviceCenter.ServiceCenter;
+import common.util.AddressUtil;
+
 import org.apache.curator.RetryPolicy;
 import org.apache.curator.framework.CuratorFramework;
 import org.apache.curator.framework.CuratorFrameworkFactory;
@@ -13,6 +14,7 @@ import java.net.InetSocketAddress;
 public class ZKServiceRegister implements ServiceRegister {
     private CuratorFramework client;
     private static final String ROOT_PATH = "MY_RPC";
+    private static final String RETRY_GROUP = "CanRetry";
 
     //负责zookeeper客户端的初始化，并与zookeeper服务端进行连接
     public ZKServiceRegister(){
@@ -28,34 +30,44 @@ public class ZKServiceRegister implements ServiceRegister {
         System.out.println("zookeeper 连接成功");
     }
 
-    // 地址 -> XXX.XXX.XXX.XXX:port 字符串
-    private String getServiceAddress(InetSocketAddress serverAddress) {
-        return serverAddress.getHostName() +
-                ":" +
-                serverAddress.getPort();
-    }
-    // 字符串解析为地址
-    private InetSocketAddress parseAddress(String address) {
-        String[] result = address.split(":");
-        return new InetSocketAddress(result[0], Integer.parseInt(result[1]));
-    }
-
     @Override
-    public void register(String serviceName, InetSocketAddress serviceAddress) {
-        try{
-            // 如果zookeeper上没有该服务的根节点，说明服务未被注册；创建为永久节点
-            // 服务提供者下线时，只删掉地址不删服务名，避免重复注册服务
-            if(client.checkExists().forPath("/"+serviceName)==null){
-                client.create().creatingParentsIfNeeded()
+    public void register(String serviceName, InetSocketAddress serviceAddress, boolean canRetry) {
+        try {
+            String servicePath = "/" + serviceName;
+            String address = AddressUtil.toString(serviceAddress);
+            String instancePath = servicePath + "/" + address;
+
+            // 安全创建永久服务节点（如果已存在，忽略异常）
+            try {
+                client.create()
+                        .creatingParentsIfNeeded()
                         .withMode(CreateMode.PERSISTENT)
-                        .forPath("/"+serviceName);
+                        .forPath(servicePath);
+            } catch (Exception e) {
+                if (!(e instanceof org.apache.zookeeper.KeeperException.NodeExistsException)) {
+                    throw e; // 只有节点已存在可忽略，其他抛出
+                }
             }
-            // 否则，说明服务已被注册过，创建为临时节点
-            String path = "/"+serviceName+"/"+getServiceAddress(serviceAddress);
-            client.create().creatingParentsIfNeeded()
-                    .withMode(CreateMode.EPHEMERAL).forPath(path);
-        }catch (Exception e){
-            System.out.println("Zookeeper：无法重复注册服务");
+
+            // 创建服务实例节点（临时节点）
+            client.create()
+                    .creatingParentsIfNeeded()
+                    .withMode(CreateMode.EPHEMERAL)
+                    .forPath(instancePath);
+
+            // 如果支持 retry，创建 retry 节点（也包含唯一地址）
+            if (canRetry) {
+                String retryPath = "/" + RETRY_GROUP + "/" + serviceName + "/" + address;
+                client.create()
+                        .creatingParentsIfNeeded()
+                        .withMode(CreateMode.EPHEMERAL)
+                        .forPath(retryPath);
+            }
+
+            System.out.println("服务注册成功: " + instancePath);
+        } catch (Exception e) {
+            System.err.println("服务注册失败: " + e.getMessage());
+            e.printStackTrace();
         }
     }
 }

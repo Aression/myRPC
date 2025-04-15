@@ -39,6 +39,10 @@ public class NettyRpcClient implements RpcClient {
         this.serviceCenter = new ZKServiceCenter(loadBalance);
     }
 
+    public boolean checkRetry(String serviceName){
+        return serviceCenter.checkRetry(serviceName);
+    }
+
     static{
         eventLoopGroup = new NioEventLoopGroup();
         bootstrap = new Bootstrap();

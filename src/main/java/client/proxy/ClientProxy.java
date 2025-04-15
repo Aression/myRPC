@@ -1,8 +1,11 @@
 package client.proxy;
 
+import client.retry.GuavaRetry;
 import client.rpcClient.RpcClient;
 import client.rpcClient.impl.NettyRpcClient;
 import client.rpcClient.impl.SimpleSocketRpcClient;
+import client.serviceCenter.ServiceCenter;
+import client.serviceCenter.ZKServiceCenter;
 import client.serviceCenter.balance.LoadBalanceFactory;
 import common.message.RpcRequest;
 import common.message.RpcResponse;
@@ -23,7 +26,7 @@ import com.alibaba.fastjson.JSON;
 @AllArgsConstructor
 public class ClientProxy implements InvocationHandler {
     private RpcClient rpcClient;
-    
+
     public ClientProxy(){
         rpcClient = new NettyRpcClient();
     }
@@ -31,15 +34,6 @@ public class ClientProxy implements InvocationHandler {
     public ClientProxy(LoadBalanceFactory.BalanceType balanceType){
         rpcClient = new NettyRpcClient(balanceType);
     }
-//    public ClientProxy(String host,int port,int choose){
-//        switch (choose){
-//            case 0:
-//                rpcClient = new NettyRpcClient(host, port);
-//                break;
-//            case 1:
-//                rpcClient = new SimpleSocketRpcClient(host,port);
-//        }
-//    }
     
     // JDK动态代理，每一次代理对象调用方法，会经过此方法增强（反射获取request对象，发送到服务端）
     @Override
@@ -53,8 +47,13 @@ public class ClientProxy implements InvocationHandler {
                 .timestamp(System.currentTimeMillis())
                 .build();
         
-        // 发送请求
-        RpcResponse response = rpcClient.sendRequest(request);
+        // 为白名单服务发送带重试请求；否则直接发送不可重试请求
+        RpcResponse response;
+        if(rpcClient.checkRetry(request.getInterfaceName())){
+            response = new GuavaRetry().sendServiceWithRetry(request, rpcClient);
+        }else{
+            response = rpcClient.sendRequest(request);
+        }
         
         // 处理结果
         if (response == null) {

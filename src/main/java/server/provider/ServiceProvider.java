@@ -16,11 +16,6 @@ public class ServiceProvider {
     private String host;
     private ServiceRegister serviceRegister;
 
-//    //空构造函数
-//    public ServiceProvider(){
-//        this.interfaceProvider = new HashMap<>();
-//    }
-
     public ServiceProvider(String host, int port){
         this.host = host;
         this.port = port;
@@ -29,7 +24,7 @@ public class ServiceProvider {
     }
 
     //本地注册服务
-    public void provideServiceInterface(Object service){
+    public void provideServiceInterface(Object service, boolean canRetry){
         String serviceName = service.getClass().getName();
         Class<?>[] interfaceNames = service.getClass().getInterfaces();
         for(Class<?> clazz:interfaceNames){
@@ -39,7 +34,8 @@ public class ServiceProvider {
             );//将接口的全限定名和对应服务实例注册到map中
             serviceRegister.register(
                     clazz.getName(),
-                    new InetSocketAddress(host, port)
+                    new InetSocketAddress(host, port),
+                    canRetry
             );//同时在zookeeper中注册服务
         }
     }

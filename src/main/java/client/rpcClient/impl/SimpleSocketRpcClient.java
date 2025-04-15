@@ -30,4 +30,9 @@ public class SimpleSocketRpcClient implements RpcClient {
             throw new RuntimeException(e);
         }
     }
+
+	@Override
+	public boolean checkRetry(String serviceName) {
+		return false; // 默认不可重试
+	}
 }

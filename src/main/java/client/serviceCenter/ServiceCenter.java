@@ -20,4 +20,7 @@ public interface ServiceCenter {
      * @return 服务地址
      */
     InetSocketAddress serviceDiscovery(String serviceName, String featureCode);
+
+    //判断是否可重试
+    boolean checkRetry(String serviceName);
 }
