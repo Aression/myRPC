@@ -24,4 +24,11 @@ public interface UserService {
      * @return 删除结果
      */
     Result<Boolean> deleteUserById(Integer id);
+    
+    /**
+     * 更新用户信息
+     * @param user 要更新的用户
+     * @return 更新结果
+     */
+    Result<Boolean> updateUser(User user);
 }

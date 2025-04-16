@@ -43,7 +43,7 @@ public class ZKServiceCenter implements ServiceCenter{
         );
         // 设置心跳侦听
         this.client = CuratorFrameworkFactory.builder()
-                .connectString("127.0.0.1:2181")
+                .connectString("127.0.0.1:2285")
                 .sessionTimeoutMs(40000)
                 .retryPolicy(policy)
                 .namespace(ROOT_PATH)

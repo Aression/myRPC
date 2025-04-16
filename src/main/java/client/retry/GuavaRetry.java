@@ -18,8 +18,8 @@ public class GuavaRetry {
         Retryer<RpcResponse> retryer = RetryerBuilder.<RpcResponse>newBuilder()
                 //无论出现什么异常，都进行重试
                 .retryIfException()
-                //返回结果为 error时进行重试
-                .retryIfResult(response -> Objects.equals(response.getCode(), 500))
+                //返回结果为5开头的连接错误时进行重试
+                .retryIfResult(response -> response.getCode() >= 500 && response.getCode() < 600)
                 //重试等待策略：等待 2s 后再进行重试
                 .withWaitStrategy(WaitStrategies.fixedWait(2, TimeUnit.SECONDS))
                 //重试停止策略：重试达到 3 次

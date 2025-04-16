@@ -42,6 +42,31 @@ public class TestClient {
                 logger.error("错误消息：{}", queryResult.getMessage());
             }
 
+            // 测试更新用户
+            User updatedUser = User.builder()
+                    .id(1)
+                    .userName("李四")
+                    .sex(false)
+                    .build();
+            Result<Boolean> updateResult = userService.updateUser(updatedUser);
+            if (updateResult.isSuccess()) {
+                logger.info("更新用户成功：{}", updateResult.getMessage());
+            } else {
+                logger.error("更新用户失败，错误码：{}", updateResult.getCode());
+                logger.error("错误消息：{}", updateResult.getMessage());
+            }
+
+            // 再次查询用户以验证更新
+            Result<User> queryResultAfterUpdate = userService.getUserById(1);
+            if (queryResultAfterUpdate.isSuccess()) {
+                User user = queryResultAfterUpdate.getData();
+                logger.info("更新后从服务端获取的user: {}", user);
+                logger.info("服务端返回消息：{}", queryResultAfterUpdate.getMessage());
+            } else {
+                logger.error("查询用户失败，错误码：{}", queryResultAfterUpdate.getCode());
+                logger.error("错误消息：{}", queryResultAfterUpdate.getMessage());
+            }
+
             // 测试删除用户
             Result<Boolean> deleteResult = userService.deleteUserById(1);
             if (deleteResult.isSuccess()) {
@@ -49,6 +74,17 @@ public class TestClient {
             } else {
                 logger.error("删除用户失败，错误码：{}", deleteResult.getCode());
                 logger.error("错误消息：{}", deleteResult.getMessage());
+            }
+
+            // 再次查询用户以验证删除
+            Result<User> queryResultAfterDelete = userService.getUserById(1);
+            if (queryResultAfterDelete.isSuccess()) {
+                User user = queryResultAfterDelete.getData();
+                logger.info("删除后从服务端获取的user: {}", user);
+                logger.info("服务端返回消息：{}", queryResultAfterDelete.getMessage());
+            } else {
+                logger.error("查询用户失败，错误码：{}", queryResultAfterDelete.getCode());
+                logger.error("错误消息：{}", queryResultAfterDelete.getMessage());
             }
         } catch (Exception e) {
             logger.error("RPC调用过程中出现异常: {}", e.getMessage(), e);
