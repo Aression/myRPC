@@ -3,17 +3,23 @@ syntax = "proto3";
 package common.message;
 
 message RpcRequest {
-    string interfaceName = 1;  // 添加interfaceName字段
-    string methodName = 2;
-    repeated string params = 3;
-    repeated string paramsType = 4;
-    int64 timestamp = 5;       // 添加时间戳字段，用于负载均衡
+    string requestId = 1;           // 请求id
+    string interfaceName = 2;       // 接口名称
+    string methodName = 3;          // 方法名称
+    repeated string params = 4;     // 参数
+    repeated string paramsType = 5; // 参数类型
+    int64 timestamp = 6;            // 时间戳
+    string featureCode = 7;         // 特征码
+    string traceId = 8;             // 链路追踪ID
+    string spanId = 9;              // 链路追踪span ID
 }
 
 message RpcResponse {
-    string data = 1;
-    string dataType = 2;
-    int32 code = 3;            // 添加code字段
-    string message = 4;        // 添加message字段
-    string serverAddress = 5;  // 添加服务器地址字段
+    string requestId = 1;           // 对应请求id
+    int32 code = 2;                 // 响应码
+    string message = 3;             // 响应消息
+    string dataType = 4;            // 响应数据类型
+    string data = 5;                // 响应数据
+    string traceId = 6;             // 链路追踪ID
+    string spanId = 7;              // 链路追踪span ID
 }

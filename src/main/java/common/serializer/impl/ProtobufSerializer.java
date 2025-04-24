@@ -4,6 +4,7 @@ import common.message.Rpc;
 import common.message.RpcRequest;
 import common.message.RpcResponse;
 import common.serializer.Serializer;
+import com.alibaba.fastjson.JSON;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.MessageLite;
 import org.slf4j.Logger;
@@ -19,106 +20,13 @@ public class ProtobufSerializer implements Serializer {
         try {
             logger.info("开始序列化对象: {}", obj.getClass().getName());
             
-            // 处理RpcRequest
             if (obj instanceof RpcRequest) {
-                RpcRequest javaRequest = (RpcRequest) obj;
-                
-                // 构建Protobuf版本的RpcRequest
-                Rpc.RpcRequest.Builder builder = Rpc.RpcRequest.newBuilder();
-                
-                // 设置interfaceName
-                if (javaRequest.getInterfaceName() != null) {
-                    builder.setInterfaceName(javaRequest.getInterfaceName());
-                }
-                
-                // 设置methodName
-                if (javaRequest.getMethodName() != null) {
-                    builder.setMethodName(javaRequest.getMethodName());
-                }
-                
-                // 处理params
-                if (javaRequest.getParams() != null) {
-                    for (Object param : javaRequest.getParams()) {
-                        if (param != null) {
-                            // 对于复杂对象，使用JSON序列化
-                            if (!(param instanceof String || param instanceof Number || param instanceof Boolean)) {
-                                String jsonParam = com.alibaba.fastjson.JSON.toJSONString(param);
-                                builder.addParams(jsonParam);
-                            } else {
-                                builder.addParams(param.toString());
-                            }
-                        } else {
-                            builder.addParams("");
-                        }
-                    }
-                }
-                
-                // 处理paramsType
-                if (javaRequest.getParamsType() != null) {
-                    for (Class<?> paramType : javaRequest.getParamsType()) {
-                        if (paramType != null) {
-                            builder.addParamsType(paramType.getName());
-                        } else {
-                            builder.addParamsType("");
-                        }
-                    }
-                }
-                
-                Rpc.RpcRequest protoRequest = builder.build();
-                byte[] bytes = protoRequest.toByteArray();
-                logger.info("序列化完成，数据长度: {}", bytes.length);
-                return bytes;
-            } 
-            // 处理RpcResponse
-            else if (obj instanceof RpcResponse) {
-                RpcResponse javaResponse = (RpcResponse) obj;
-                
-                Rpc.RpcResponse.Builder builder = Rpc.RpcResponse.newBuilder();
-                
-                // 设置data
-                if (javaResponse.getData() != null) {
-                    // 对于复杂对象，使用JSON序列化
-                    if (!(javaResponse.getData() instanceof String || 
-                          javaResponse.getData() instanceof Number || 
-                          javaResponse.getData() instanceof Boolean)) {
-                        String jsonData = com.alibaba.fastjson.JSON.toJSONString(javaResponse.getData());
-                        builder.setData(jsonData);
-                    } else {
-                        builder.setData(javaResponse.getData().toString());
-                    }
-                } else {
-                    builder.setData("");
-                }
-                
-                // 设置dataType
-                if (javaResponse.getDataType() != null) {
-                    builder.setDataType(javaResponse.getDataType().getName());
-                } else {
-                    builder.setDataType("");
-                }
-                
-                // 设置code
-                builder.setCode(javaResponse.getCode());
-                
-                // 设置message
-                if (javaResponse.getMessage() != null) {
-                    builder.setMessage(javaResponse.getMessage());
-                } else {
-                    builder.setMessage("");
-                }
-                
-                Rpc.RpcResponse protoResponse = builder.build();
-                byte[] bytes = protoResponse.toByteArray();
-                logger.info("序列化完成，数据长度: {}", bytes.length);
-                return bytes;
-            }
-            // 处理直接的Protocol Buffers消息
-            else if (obj instanceof MessageLite) {
-                byte[] bytes = ((MessageLite) obj).toByteArray();
-                logger.info("序列化完成，数据长度: {}", bytes.length);
-                return bytes;
-            } 
-            else {
+                return serializeRequest((RpcRequest) obj);
+            } else if (obj instanceof RpcResponse) {
+                return serializeResponse((RpcResponse) obj);
+            } else if (obj instanceof MessageLite) {
+                return ((MessageLite) obj).toByteArray();
+            } else {
                 throw new IllegalArgumentException("不支持的对象类型: " + obj.getClass().getName());
             }
         } catch (Exception e) {
@@ -127,196 +35,198 @@ public class ProtobufSerializer implements Serializer {
         }
     }
 
+    private byte[] serializeRequest(RpcRequest request) {
+        Rpc.RpcRequest.Builder builder = Rpc.RpcRequest.newBuilder();
+        
+        // 设置基本字段
+        if (request.getRequestId() != null) builder.setRequestId(request.getRequestId());
+        if (request.getInterfaceName() != null) builder.setInterfaceName(request.getInterfaceName());
+        if (request.getMethodName() != null) builder.setMethodName(request.getMethodName());
+        
+        // 处理参数
+        if (request.getParams() != null) {
+            for (Object param : request.getParams()) {
+                builder.addParams(param != null ? 
+                        (isSimpleType(param) ? param.toString() : JSON.toJSONString(param)) : "");
+            }
+        }
+        
+        // 处理参数类型
+        if (request.getParamsType() != null) {
+            for (Class<?> paramType : request.getParamsType()) {
+                builder.addParamsType(paramType != null ? paramType.getName() : "");
+            }
+        }
+        
+        // 设置其他字段
+        builder.setTimestamp(request.getTimestamp());
+        if (request.getFeatureCode() != null) builder.setFeatureCode(request.getFeatureCode());
+        if (request.getTraceId() != null) builder.setTraceId(request.getTraceId());
+        if (request.getSpanId() != null) builder.setSpanId(request.getSpanId());
+        
+        return builder.build().toByteArray();
+    }
+    
+    private byte[] serializeResponse(RpcResponse response) {
+        Rpc.RpcResponse.Builder builder = Rpc.RpcResponse.newBuilder();
+        
+        // 设置基本字段
+        if (response.getRequestId() != null) builder.setRequestId(response.getRequestId());
+        if (response.getCode() != null) builder.setCode(response.getCode());
+        builder.setMessage(response.getMessage() != null ? response.getMessage() : "");
+        
+        // 设置数据类型
+        if (response.getDataType() != null) {
+            builder.setDataType(response.getDataType().getName());
+        } else {
+            builder.setDataType("");
+        }
+        
+        // 设置数据
+        if (response.getData() != null) {
+            builder.setData(isSimpleType(response.getData()) ? 
+                    response.getData().toString() : JSON.toJSONString(response.getData()));
+        } else {
+            builder.setData("");
+        }
+        
+        // 设置其他字段
+        if (response.getTraceId() != null) builder.setTraceId(response.getTraceId());
+        if (response.getSpanId() != null) builder.setSpanId(response.getSpanId());
+        
+        return builder.build().toByteArray();
+    }
+
     @Override
     public Object deserialize(byte[] bytes, int messageType) {
         try {
             logger.info("开始反序列化，消息类型: {}", messageType);
-            Object obj = null;
+            
             switch (messageType) {
-                case 0:
-                    // 解析为RpcRequest
-                    Rpc.RpcRequest protoRequest = Rpc.RpcRequest.parseFrom(bytes);
-                    
-                    // 转换为Java Bean的RpcRequest
-                    RpcRequest javaRequest = new RpcRequest();
-                    
-                    // 设置interfaceName
-                    javaRequest.setInterfaceName(protoRequest.getInterfaceName());
-                    
-                    // 设置methodName
-                    javaRequest.setMethodName(protoRequest.getMethodName());
-                    
-                    // 转换params
-                    List<String> paramsList = protoRequest.getParamsList();
-                    Object[] params = new Object[paramsList.size()];
-                    
-                    // 获取参数类型列表
-                    List<String> paramsTypeList = protoRequest.getParamsTypeList();
-                    Class<?>[] paramsTypes = new Class<?>[paramsTypeList.size()];
-                    
-                    // 先初始化参数类型数组
-                    for (int i = 0; i < paramsTypeList.size(); i++) {
-                        try {
-                            paramsTypes[i] = Class.forName(paramsTypeList.get(i));
-                        } catch (ClassNotFoundException e) {
-                            e.printStackTrace();
-                            paramsTypes[i] = String.class; // 默认使用String类
-                        }
-                    }
-                    
-                    // 根据参数类型转换参数值
-                    for (int i = 0; i < paramsList.size(); i++) {
-                        String paramStr = paramsList.get(i);
-                        Class<?> paramType = paramsTypes[i];
-                        
-                        try {
-                            // 根据目标类型进行转换
-                            if (paramType == String.class) {
-                                params[i] = paramStr;
-                            } else if (paramType == Integer.class || paramType == int.class) {
-                                params[i] = Integer.parseInt(paramStr);
-                            } else if (paramType == Boolean.class || paramType == boolean.class) {
-                                params[i] = Boolean.parseBoolean(paramStr);
-                            } else if (paramType == Double.class || paramType == double.class) {
-                                params[i] = Double.parseDouble(paramStr);
-                            } else if (paramType == Float.class || paramType == float.class) {
-                                params[i] = Float.parseFloat(paramStr);
-                            } else if (paramType == Long.class || paramType == long.class) {
-                                params[i] = Long.parseLong(paramStr);
-                            } else {
-                                // 对于复杂对象，使用JSON反序列化
-                                try {
-                                    params[i] = com.alibaba.fastjson.JSON.parseObject(paramStr, paramType);
-                                    logger.info("成功反序列化复杂对象: {}", params[i]);
-                                } catch (Exception jsonEx) {
-                                    logger.info("JSON反序列化失败，尝试使用默认构造函数: {}", jsonEx.getMessage());
-                                    // 如果JSON反序列化失败，尝试使用反射创建对象并设置属性
-                                    Object instance = paramType.getDeclaredConstructor().newInstance();
-                                    params[i] = instance;
-                                }
-                            }
-                        } catch (Exception e) {
-                            logger.error("参数转换失败: {}", e.getMessage(), e);
-                            e.printStackTrace();
-                            // 转换失败不要直接使用原字符串，而是返回null或默认值
-                            try {
-                                if (paramType.isPrimitive()) {
-                                    // 对于原始类型，使用默认值
-                                    if (paramType == int.class || paramType == long.class || 
-                                        paramType == short.class || paramType == byte.class) {
-                                        params[i] = 0;
-                                    } else if (paramType == float.class || paramType == double.class) {
-                                        params[i] = 0.0;
-                                    } else if (paramType == boolean.class) {
-                                        params[i] = false;
-                                    } else if (paramType == char.class) {
-                                        params[i] = '\u0000';
-                                    }
-                                } else {
-                                    params[i] = null;
-                                }
-                            } catch (Exception ex) {
-                                params[i] = null;
-                            }
-                        }
-                    }
-                    
-                    javaRequest.setParams(params);
-                    
-                    // 转换paramsType
-                    javaRequest.setParamsType(paramsTypes);
-                    
-                    obj = javaRequest;
-                    break;
-                    
-                case 1:
-                    // 解析为RpcResponse
-                    Rpc.RpcResponse protoResponse = Rpc.RpcResponse.parseFrom(bytes);
-                    
-                    // 转换为Java Bean的RpcResponse
-                    RpcResponse javaResponse = new RpcResponse();
-                    
-                    // 设置code
-                    javaResponse.setCode(protoResponse.getCode());
-                    
-                    // 设置message
-                    javaResponse.setMessage(protoResponse.getMessage());
-                    
-                    // 设置data和dataType
-                    String dataTypeStr = protoResponse.getDataType();
-                    if (dataTypeStr != null && !dataTypeStr.isEmpty()) {
-                        try {
-                            Class<?> dataType = Class.forName(dataTypeStr);
-                            javaResponse.setDataType(dataType);
-                            
-                            String dataStr = protoResponse.getData();
-                            logger.info("数据类型: {}, 数据内容: {}", dataType.getName(), dataStr);
-                            
-                            // 根据数据类型进行转换
-                            if (dataType == String.class) {
-                                javaResponse.setData(dataStr);
-                            } else if (dataType == Integer.class || dataType == int.class) {
-                                javaResponse.setData(Integer.parseInt(dataStr));
-                            } else if (dataType == Boolean.class || dataType == boolean.class) {
-                                javaResponse.setData(Boolean.parseBoolean(dataStr));
-                            } else if (dataType == Double.class || dataType == double.class) {
-                                javaResponse.setData(Double.parseDouble(dataStr));
-                            } else if (dataType == Float.class || dataType == float.class) {
-                                javaResponse.setData(Float.parseFloat(dataStr));
-                            } else if (dataType == Long.class || dataType == long.class) {
-                                javaResponse.setData(Long.parseLong(dataStr));
-                            } else {
-                                try {
-                                    // 检查是否是有效的JSON字符串
-                                    if (dataStr.trim().startsWith("{") && dataStr.trim().endsWith("}")) {
-                                        // 复杂对象使用JSON反序列化
-                                        Object resultObj = com.alibaba.fastjson.JSON.parseObject(dataStr, dataType);
-                                        javaResponse.setData(resultObj);
-                                        logger.info("成功使用JSON反序列化复杂对象: {}", resultObj);
-                                    } else {
-                                        throw new Exception("数据不是有效的JSON格式: " + dataStr);
-                                    }
-                                } catch (Exception jsonEx) {
-                                    logger.info("JSON反序列化失败: {}", jsonEx.getMessage());
-                                    // 尝试使用反射创建对象
-                                    try {
-                                        Object instance = dataType.getDeclaredConstructor().newInstance();
-                                        javaResponse.setData(instance);
-                                        logger.info("使用默认构造函数创建对象: {}", instance);
-                                    } catch (Exception reflectEx) {
-                                        logger.info("无法创建对象实例: {}", reflectEx.getMessage());
-                                        javaResponse.setData(dataStr);
-                                    }
-                                }
-                            }
-                        } catch (ClassNotFoundException e) {
-                            logger.error("找不到类: {}", dataTypeStr);
-                            e.printStackTrace();
-                            javaResponse.setDataType(String.class);
-                            javaResponse.setData(protoResponse.getData());
-                        } catch (Exception e) {
-                            logger.error("数据类型转换失败: {}", e.getMessage());
-                            e.printStackTrace();
-                            javaResponse.setData(protoResponse.getData()); // 转换失败时保留原始字符串
-                        }
-                    } else {
-                        javaResponse.setData(protoResponse.getData());
-                    }
-                    
-                    obj = javaResponse;
-                    break;
-                    
-                default:
-                    logger.error("不支持的消息类型: {}", messageType);
-                    throw new RuntimeException("不支持的消息类型: " + messageType);
+                case 0: return deserializeRequest(bytes);
+                case 1: return deserializeResponse(bytes);
+                default: throw new IllegalArgumentException("不支持的消息类型: " + messageType);
             }
-            logger.info("反序列化完成: {}", obj);
-            return obj;
         } catch (InvalidProtocolBufferException e) {
             logger.error("反序列化失败: {}", e.getMessage(), e);
-            e.printStackTrace();
-            throw new RuntimeException("反序列化失败", e);
+            return null;
         }
+    }
+    
+    private RpcRequest deserializeRequest(byte[] bytes) throws InvalidProtocolBufferException {
+        Rpc.RpcRequest protoRequest = Rpc.RpcRequest.parseFrom(bytes);
+        RpcRequest request = new RpcRequest();
+        
+        // 设置基本字段
+        request.setRequestId(protoRequest.getRequestId());
+        request.setInterfaceName(protoRequest.getInterfaceName());
+        request.setMethodName(protoRequest.getMethodName());
+        
+        // 处理参数类型
+        List<String> paramsTypeList = protoRequest.getParamsTypeList();
+        Class<?>[] paramsTypes = new Class<?>[paramsTypeList.size()];
+        for (int i = 0; i < paramsTypeList.size(); i++) {
+            try {
+                paramsTypes[i] = Class.forName(paramsTypeList.get(i));
+            } catch (ClassNotFoundException e) {
+                paramsTypes[i] = String.class;
+            }
+        }
+        request.setParamsType(paramsTypes);
+        
+        // 处理参数
+        List<String> paramsList = protoRequest.getParamsList();
+        Object[] params = new Object[paramsList.size()];
+        for (int i = 0; i < paramsList.size(); i++) {
+            params[i] = convertParam(paramsList.get(i), paramsTypes[i]);
+        }
+        request.setParams(params);
+        
+        // 设置其他字段
+        request.setTimestamp(protoRequest.getTimestamp());
+        request.setFeatureCode(protoRequest.getFeatureCode());
+        request.setTraceId(protoRequest.getTraceId());
+        request.setSpanId(protoRequest.getSpanId());
+        
+        return request;
+    }
+    
+    private RpcResponse deserializeResponse(byte[] bytes) throws InvalidProtocolBufferException {
+        Rpc.RpcResponse protoResponse = Rpc.RpcResponse.parseFrom(bytes);
+        RpcResponse response = new RpcResponse();
+        
+        // 设置基本字段
+        response.setRequestId(protoResponse.getRequestId());
+        response.setCode(protoResponse.getCode());
+        response.setMessage(protoResponse.getMessage());
+        
+        // 处理数据类型和数据
+        String dataTypeStr = protoResponse.getDataType();
+        if (dataTypeStr != null && !dataTypeStr.isEmpty()) {
+            try {
+                Class<?> dataType = Class.forName(dataTypeStr);
+                response.setDataType(dataType);
+                
+                String dataStr = protoResponse.getData();
+                if (dataStr != null && !dataStr.isEmpty()) {
+                    response.setData(convertParam(dataStr, dataType));
+                }
+            } catch (ClassNotFoundException e) {
+                logger.error("找不到数据类型: {}", e.getMessage());
+                response.setDataType(String.class);
+                response.setData(protoResponse.getData());
+            }
+        }
+        
+        // 设置其他字段
+        response.setTraceId(protoResponse.getTraceId());
+        response.setSpanId(protoResponse.getSpanId());
+        
+        return response;
+    }
+    
+    private Object convertParam(String paramStr, Class<?> paramType) {
+        try {
+            if (paramType == String.class) {
+                return paramStr;
+            } else if (paramType == Integer.class || paramType == int.class) {
+                return Integer.parseInt(paramStr);
+            } else if (paramType == Boolean.class || paramType == boolean.class) {
+                return Boolean.parseBoolean(paramStr);
+            } else if (paramType == Double.class || paramType == double.class) {
+                return Double.parseDouble(paramStr);
+            } else if (paramType == Float.class || paramType == float.class) {
+                return Float.parseFloat(paramStr);
+            } else if (paramType == Long.class || paramType == long.class) {
+                return Long.parseLong(paramStr);
+            } else {
+                // 对于复杂对象，使用JSON反序列化
+                return JSON.parseObject(paramStr, paramType);
+            }
+        } catch (Exception e) {
+            logger.error("参数转换失败: {}", e.getMessage());
+            return getDefaultValue(paramType);
+        }
+    }
+    
+    private Object getDefaultValue(Class<?> type) {
+        if (type.isPrimitive()) {
+            if (type == int.class || type == long.class || 
+                type == short.class || type == byte.class) {
+                return 0;
+            } else if (type == float.class || type == double.class) {
+                return 0.0;
+            } else if (type == boolean.class) {
+                return false;
+            } else if (type == char.class) {
+                return '\u0000';
+            }
+        }
+        return null;
+    }
+    
+    private boolean isSimpleType(Object obj) {
+        return obj instanceof String || obj instanceof Number || obj instanceof Boolean;
     }
 
     @Override

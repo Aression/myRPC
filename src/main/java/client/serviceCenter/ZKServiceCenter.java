@@ -1,7 +1,7 @@
 package client.serviceCenter;
 
-import client.serviceCenter.balance.ConsistencyHashBalance;
 import client.serviceCenter.balance.LoadBalance;
+import client.serviceCenter.balance.impl.ConsistencyHashBalance;
 import client.serviceCenter.cache.ZKCache;
 import common.util.AddressUtil;
 import io.netty.util.internal.ThreadLocalRandom;
@@ -18,6 +18,11 @@ import org.slf4j.LoggerFactory;
 import java.net.InetSocketAddress;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 public class ZKServiceCenter implements ServiceCenter{
     private static final Logger logger = LoggerFactory.getLogger(ZKServiceCenter.class);
@@ -25,6 +30,12 @@ public class ZKServiceCenter implements ServiceCenter{
     private static final String ROOT_PATH="MY_RPC"; // zookeeper根路径节点
     private static final String RETRY_GROUP = "CanRetry"; //可重试服务组名称，不在该组的服务不进行重试
 
+    // 服务请求统计
+    private final Map<String, Map<InetSocketAddress, AtomicLong>> serviceRequestStats = new ConcurrentHashMap<>();
+    // 服务总请求数统计
+    private final Map<String, AtomicLong> serviceTotalRequests = new ConcurrentHashMap<>();
+    // 读写锁，用于保护统计数据的更新
+    private final ReadWriteLock statsLock = new ReentrantReadWriteLock();
 
     // 负载均衡策略
     private final LoadBalance loadBalance;
@@ -105,6 +116,23 @@ public class ZKServiceCenter implements ServiceCenter{
                 socketAddress = loadBalance.select(serviceName, inetSocketAddresList, randomFeatureCode);
             }
             
+            // 更新服务请求统计
+            if (socketAddress != null) {
+                statsLock.writeLock().lock();
+                try {
+                    // 更新服务地址的请求计数
+                    serviceRequestStats.computeIfAbsent(serviceName, k -> new ConcurrentHashMap<>())
+                        .computeIfAbsent(socketAddress, k -> new AtomicLong(0))
+                        .incrementAndGet();
+                    
+                    // 更新服务总请求数
+                    serviceTotalRequests.computeIfAbsent(serviceName, k -> new AtomicLong(0))
+                        .incrementAndGet();
+                } finally {
+                    statsLock.writeLock().unlock();
+                }
+            }
+            
             logger.info("选择服务节点: {}", socketAddress);
             
             return socketAddress;
@@ -178,5 +206,39 @@ public class ZKServiceCenter implements ServiceCenter{
         }
         return canRetry; // 默认返回false
 	}
+
+    @Override
+    public String reportServiceDistribution() {
+        StringBuilder report = new StringBuilder();
+        report.append("服务分布统计报告:\n");
+        
+        statsLock.readLock().lock();
+        try {
+            for (Map.Entry<String, Map<InetSocketAddress, AtomicLong>> serviceEntry : serviceRequestStats.entrySet()) {
+                String serviceName = serviceEntry.getKey();
+                Map<InetSocketAddress, AtomicLong> addressStats = serviceEntry.getValue();
+                long totalRequests = serviceTotalRequests.getOrDefault(serviceName, new AtomicLong(0)).get();
+                
+                report.append("\n服务名称: ").append(serviceName).append("\n");
+                report.append("----------------------------------------\n");
+                
+                for (Map.Entry<InetSocketAddress, AtomicLong> addressEntry : addressStats.entrySet()) {
+                    InetSocketAddress address = addressEntry.getKey();
+                    long requests = addressEntry.getValue().get();
+                    double percentage = totalRequests > 0 ? (requests * 100.0 / totalRequests) : 0;
+                    
+                    report.append(String.format("地址: %s:%d, 请求数: %d (%.2f%%)\n", 
+                        address.getHostString(), address.getPort(), requests, percentage));
+                }
+                
+                report.append(String.format("总请求数: %d\n", totalRequests));
+                report.append("----------------------------------------\n");
+            }
+        } finally {
+            statsLock.readLock().unlock();
+        }
+        
+        return report.toString();
+    }
 
 }

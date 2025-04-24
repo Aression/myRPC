@@ -1,0 +1,3 @@
+common.serializer.impl.ObjectSerializer
+common.serializer.impl.JsonSerializer
+common.serializer.impl.ProtobufSerializer

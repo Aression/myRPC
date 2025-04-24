@@ -35,4 +35,10 @@ public class SimpleSocketRpcClient implements RpcClient {
 	public boolean checkRetry(String serviceName) {
 		return false; // 默认不可重试
 	}
+
+    @Override
+    public String reportServiceStatus() {
+        // TODO Auto-generated method stub
+        throw new UnsupportedOperationException("Unimplemented method 'reportServiceStatus'");
+    }
 }

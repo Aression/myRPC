@@ -1,0 +1,4 @@
+client.serviceCenter.balance.impl.ConsistencyHashBalance
+client.serviceCenter.balance.impl.RandomLoadBalance
+client.serviceCenter.balance.impl.LSTMLoadBalance
+client.serviceCenter.balance.impl.SequenceLoadBalance

@@ -9,6 +9,15 @@ public class TokenBucketRateLimit implements RateLimit{
 
     private volatile long lastAccessTime; // 最后一次访问时间
 
+    // 添加无参构造函数，用于SPI机制加载
+    public TokenBucketRateLimit() {
+        // 默认参数
+        TokenBucketRateLimit.waitTimeRate = 100;
+        TokenBucketRateLimit.bucketCapacity = 100;
+        this.curCapacity = bucketCapacity;
+        this.lastAccessTime = System.currentTimeMillis();
+    }
+
     public TokenBucketRateLimit(int rate, int capacity){
         TokenBucketRateLimit.waitTimeRate = rate;
         TokenBucketRateLimit.bucketCapacity = capacity;

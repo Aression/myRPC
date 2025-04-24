@@ -21,6 +21,9 @@ public interface ServiceCenter {
      */
     InetSocketAddress serviceDiscovery(String serviceName, String featureCode);
 
-    //判断是否可重试
+    // 判断是否可重试
     boolean checkRetry(String serviceName);
+
+    // 服务状态简报
+    String reportServiceDistribution();
 }

@@ -8,10 +8,11 @@ import client.rpcClient.RpcClient;
 import common.message.RpcRequest;
 import common.message.RpcResponse;
 
-import java.util.Objects;
+import org.slf4j.*;
 import java.util.concurrent.TimeUnit;
 
 public class GuavaRetry {
+    private static final Logger logger = LoggerFactory.getLogger(GuavaRetry.class);
     private RpcClient rpcClient;
     public RpcResponse sendServiceWithRetry(RpcRequest rpcRequest, RpcClient rpcClient){
         this.rpcClient = rpcClient;
@@ -27,16 +28,16 @@ public class GuavaRetry {
                 .withRetryListener(new RetryListener() {
                     @Override
                     public <V> void onRetry(Attempt<V> attempt) {
-                        System.out.println("RetryListener: 第" + attempt.getAttemptNumber() + "次调用");
+                        logger.info("RetryListener: 第" + attempt.getAttemptNumber() + "次调用");
                     }
                 })
                 .build();
         try {
             return retryer.call(() -> rpcClient.sendRequest(rpcRequest));
         } catch (Exception e) {
-            System.out.println("GuavaRetry: 所有重试策略均失败，请求失败");
+            logger.warn("GuavaRetry: 所有重试策略均失败，请求失败");
             e.printStackTrace();
         }
-        return RpcResponse.fail();
+        return RpcResponse.fail(500, "所有重试策略均失败");
     }
 }

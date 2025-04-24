@@ -3,6 +3,8 @@ package server.netty.handler;
 import common.message.RpcRequest;
 import common.message.RpcResponse;
 import common.result.Result;
+import common.trace.TraceContext;
+import common.trace.TraceInterceptor;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
 import lombok.AllArgsConstructor;
@@ -21,20 +23,32 @@ public class NettyServerHandler extends SimpleChannelInboundHandler<RpcRequest> 
     
     @Override
     protected void channelRead0(ChannelHandlerContext channelHandlerContext, RpcRequest request) {
-        logger.info("收到客户端请求: {}", request);
-        RpcResponse rpcResponse = getResponse(request);
-        logger.info("返回响应: {}", rpcResponse);
-        
-        // 发送响应并添加监听器，确保响应发送完成后再关闭通道
-        channelHandlerContext.writeAndFlush(rpcResponse).addListener(future -> {
-            if (future.isSuccess()) {
-                logger.info("响应发送成功，准备关闭通道");
-                channelHandlerContext.close();
-            } else {
-                logger.error("响应发送失败: {}", future.cause().getMessage());
-                channelHandlerContext.close();
-            }
-        });
+        try {
+            // 设置链路追踪信息
+            TraceInterceptor.serverBeforeHandle(request.getTraceId(), request.getSpanId());
+            
+            logger.info("收到客户端请求: {}", request);
+            RpcResponse rpcResponse = getResponse(request);
+            
+            // 设置响应的链路追踪信息
+            rpcResponse.setTraceId(TraceContext.getTraceId());
+            rpcResponse.setSpanId(TraceContext.getSpanId());
+            
+            logger.info("返回响应: {}", rpcResponse);
+            
+            // 发送响应并添加监听器，确保响应发送完成后再关闭通道
+            channelHandlerContext.writeAndFlush(rpcResponse).addListener(future -> {
+                if (future.isSuccess()) {
+                    logger.info("响应发送成功，准备关闭通道");
+                    channelHandlerContext.close();
+                } else {
+                    logger.error("响应发送失败: {}", future.cause().getMessage());
+                    channelHandlerContext.close();
+                }
+            });
+        } finally {
+            TraceInterceptor.serverAfterHandle();
+        }
     }
 
     @Override

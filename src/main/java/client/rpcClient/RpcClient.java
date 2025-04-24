@@ -6,4 +6,5 @@ import common.message.RpcResponse;
 public interface RpcClient {
     boolean checkRetry(String serviceName);
     RpcResponse sendRequest(RpcRequest request);
+    String reportServiceStatus();
 }

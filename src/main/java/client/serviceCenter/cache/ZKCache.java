@@ -5,8 +5,11 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import org.slf4j.*;
+
 
 public class ZKCache {
+    private static final Logger logger = LoggerFactory.getLogger(ZKCache.class);
     private final Map<String, List<String>> cache;
     private final Map<String, Long> lastAccessTime; // 记录最后访问时间
     private final Map<String, Long> lastUpdateTime; // 记录最后更新时间
@@ -45,7 +48,7 @@ public class ZKCache {
             try {
                 cleanExpiredCache();
             } catch (Exception e) {
-                System.err.println("清理缓存时发生错误: " + e.getMessage());
+                logger.warn("清理缓存时发生错误: " + e.getMessage());
             }
         }, DEFAULT_CLEAN_INTERVAL, DEFAULT_CLEAN_INTERVAL, TimeUnit.MILLISECONDS);
     }
@@ -70,7 +73,7 @@ public class ZKCache {
                 iterator.remove();
                 lastAccessTime.remove(serviceName);
                 lastUpdateTime.remove(serviceName);
-                System.out.println("清理过期缓存: " + serviceName);
+                logger.info("清理过期缓存: " + serviceName);
             }
         }
     }

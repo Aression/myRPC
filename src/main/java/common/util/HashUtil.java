@@ -2,10 +2,6 @@ package common.util;
 
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.SortedMap;
-import java.util.TreeMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -14,9 +10,6 @@ import org.slf4j.LoggerFactory;
  */
 public class HashUtil {
     private static final Logger logger = LoggerFactory.getLogger(HashUtil.class);
-    
-    // 虚拟节点数量，更多的虚拟节点能够使得分布更均匀
-    private static final int VIRTUAL_NODE_NUM = 500;
     
     /**
      * 使用MurmurHash算法计算字符串的哈希值
@@ -81,71 +74,5 @@ public class HashUtil {
         }
         
         return md5Hash(sb.toString());
-    }
-    
-    /**
-     * 基于一致性哈希选择节点
-     * 
-     * @param key 用于选择节点的键
-     * @param nodes 可用节点列表
-     * @return 选中的节点
-     */
-    public static <T> T selectNode(String key, List<T> nodes) {
-        if (nodes == null || nodes.isEmpty()) {
-            return null;
-        }
-        
-        if (nodes.size() == 1) {
-            return nodes.get(0);
-        }
-        
-        SortedMap<Integer, T> hashRing = buildHashRing(nodes);
-        int hash = Math.abs(murmurHash(key));
-        
-        if (hashRing.isEmpty()) {
-            return null;
-        }
-        
-        // 如果没有大于当前hash值的节点，则返回环首的节点
-        if (!hashRing.tailMap(hash).isEmpty()) {
-            return hashRing.tailMap(hash).get(hashRing.tailMap(hash).firstKey());
-        } else {
-            return hashRing.get(hashRing.firstKey());
-        }
-    }
-    
-    /**
-     * 构建一致性哈希环
-     * 
-     * @param nodes 可用节点列表
-     * @return 哈希环
-     */
-    private static <T> SortedMap<Integer, T> buildHashRing(List<T> nodes) {
-        SortedMap<Integer, T> hashRing = new TreeMap<>();
-        
-        for (T node : nodes) {
-            // 为每个节点生成多个虚拟节点
-            for (int i = 0; i < VIRTUAL_NODE_NUM; i++) {
-                String virtualNodeName = node.toString() + "#" + i;
-                int hash = Math.abs(murmurHash(virtualNodeName));
-                hashRing.put(hash, node);
-            }
-        }
-        
-        return hashRing;
-    }
-    
-    /**
-     * 对输入的字符串进行哈希，然后平均分配到指定数量的桶中
-     * 
-     * @param key 输入字符串
-     * @param bucketCount 桶的数量
-     * @return 桶的索引（0到bucketCount-1）
-     */
-    public static int getBucketIndex(String key, int bucketCount) {
-        if (bucketCount <= 0) {
-            throw new IllegalArgumentException("桶数必须大于0");
-        }
-        return Math.abs(murmurHash(key) % bucketCount);
     }
 } 

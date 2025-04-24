@@ -4,9 +4,8 @@ import common.message.MessageType;
 import common.message.RpcRequest;
 import common.message.RpcResponse;
 import common.serializer.Serializer;
+import common.serializer.SerializerFactory;
 import common.serializer.impl.JsonSerializer;
-import common.serializer.impl.ObjectSerializer;
-import common.serializer.impl.ProtobufSerializer;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.MessageToByteEncoder;
@@ -41,21 +40,13 @@ public class Encoder extends MessageToByteEncoder<Object> {
     private Serializer serializer;
 
     public Encoder(int serializerType){
-        switch (serializerType) {
-            case 0:
-                this.serializer = new ObjectSerializer();
-                break;
-            case 1:
-                this.serializer = new JsonSerializer();
-                break;
-            case 2:
-                this.serializer = new ProtobufSerializer();
-                break;
-                
-            default:
-                logger.warn("未识别的序列化方式, 默认采用json序列化。");
-                this.serializer = new JsonSerializer();
-                break;
+        // 使用SPI机制加载序列化器
+        this.serializer = SerializerFactory.getSerializerByCode(serializerType);
+        
+        // 如果没有找到对应的序列化器，使用默认的JSON序列化器
+        if (this.serializer == null) {
+            logger.warn("未识别的序列化方式, 默认采用json序列化。");
+            this.serializer = new JsonSerializer();
         }
     }
 
@@ -89,12 +80,7 @@ public class Encoder extends MessageToByteEncoder<Object> {
         out.writeShort(messageType);
         
         // 写入序列化类型(2字节)
-        int serializerType = 0;
-        if (serializer instanceof JsonSerializer) {
-            serializerType = 1;
-        } else if (serializer instanceof ProtobufSerializer) {
-            serializerType = 2;
-        }
+        int serializerType = serializer.getType();
         out.writeShort(serializerType);
         
         // 写入数据长度(4字节)
