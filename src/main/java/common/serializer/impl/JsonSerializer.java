@@ -15,9 +15,9 @@ public class JsonSerializer implements Serializer{
     @Override
     public byte[] serialize(Object obj) {
         try {
-            logger.info("开始序列化对象: {}", obj.getClass().getName());
+            logger.debug("开始序列化对象: {}", obj.getClass().getName());
             byte[] bytes = JSONObject.toJSONBytes(obj);
-            logger.info("序列化完成，数据长度: {}", bytes.length);
+            logger.debug("序列化完成，数据长度: {}", bytes.length);
             return bytes;
         } catch (Exception e) {
             logger.error("序列化失败: {}", e.getMessage(), e);
@@ -28,7 +28,7 @@ public class JsonSerializer implements Serializer{
     @Override
     public Object deserialize(byte[] bytes, int messageType) {
         try {
-            logger.info("开始反序列化，消息类型: {}", messageType);
+            logger.debug("开始反序列化，消息类型: {}", messageType);
             Object obj = null;
             switch (messageType) {
                 case 0:
@@ -65,7 +65,7 @@ public class JsonSerializer implements Serializer{
                     logger.error("不支持的消息类型: {}", messageType);
                     return null;
             }
-            logger.info("反序列化完成: {}", obj);
+            logger.debug("反序列化完成: {}", obj);
             return obj;
         } catch (Exception e) {
             logger.error("反序列化失败: {}", e.getMessage(), e);

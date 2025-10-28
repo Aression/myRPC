@@ -1,6 +1,9 @@
 package client;
 
 import client.proxy.ClientProxy;
+import client.proxy.LambdaMetafactoryProxyFactory;
+import client.rpcClient.RpcClient;
+import client.rpcClient.impl.NettyRpcClient;
 import client.serviceCenter.balance.LoadBalance.BalanceType;
 import common.pojo.User;
 import common.result.Result;
@@ -14,8 +17,9 @@ public class TestClient {
     public static void main(String[] args) {
         try {
             // 创建用户服务代理
-            ClientProxy clientProxy = new ClientProxy(BalanceType.CONSISTENCY_HASH);
-            UserService userService = clientProxy.getProxy(UserService.class);
+            RpcClient client = new NettyRpcClient(BalanceType.CONSISTENCY_HASH);
+            LambdaMetafactoryProxyFactory proxyFactory = new LambdaMetafactoryProxyFactory(client);
+            UserService userService = proxyFactory.getProxy(UserService.class);
 
             // 测试插入用户
             User newUser = User.builder()
@@ -88,7 +92,7 @@ public class TestClient {
                 logger.error("错误消息：{}", queryResultAfterDelete.getMessage());
             }
 
-            logger.info(clientProxy.reportServiceStatus());
+            logger.info(client.reportServiceStatus());
         } catch (Exception e) {
             logger.error("RPC调用过程中出现异常: {}", e.getMessage(), e);
         }

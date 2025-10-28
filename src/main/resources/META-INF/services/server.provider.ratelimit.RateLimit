@@ -1,1 +1,1 @@
-server.provider.ratelimit.impl.TokenBucketRateLimit
+server.provider.ratelimit.impl.ConfigurableTokenBucketRateLimit

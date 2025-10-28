@@ -16,10 +16,10 @@ public interface ServiceCenter {
     /**
      * 服务发现（带特征码版本）
      * @param serviceName 服务名称
-     * @param featureCode 请求特征码，用于一致性哈希
+     * @param featureCode 请求特征码（长整型），用于一致性哈希
      * @return 服务地址
      */
-    InetSocketAddress serviceDiscovery(String serviceName, String featureCode);
+    InetSocketAddress serviceDiscovery(String serviceName, long featureCode);
 
     // 判断是否可重试
     boolean checkRetry(String serviceName);

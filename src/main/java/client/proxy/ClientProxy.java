@@ -9,7 +9,6 @@ import client.serviceCenter.balance.LoadBalance;
 import common.message.RpcRequest;
 import common.message.RpcResponse;
 import common.result.Result;
-import common.util.HashUtil;
 import lombok.AllArgsConstructor;
 
 import java.lang.reflect.InvocationHandler;

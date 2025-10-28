@@ -57,7 +57,7 @@ public class BloomFilterUtil {
     public static boolean add(String business, String item) {
         BloomFilter<String> filter = getFilter(business);
         boolean result = filter.put(item);
-        logger.debug("添加到布隆过滤器: business={}, item={}, result={}", business, item, result);
+        // logger.debug("添加到布隆过滤器: business={}, item={}, result={}", business, item, result);
         return result;
     }
     
@@ -71,7 +71,7 @@ public class BloomFilterUtil {
     public static boolean mightContain(String business, String item) {
         BloomFilter<String> filter = getFilter(business);
         boolean result = filter.mightContain(item);
-        logger.debug("布隆过滤器检查: business={}, item={}, result={}", business, item, result);
+        // logger.debug("布隆过滤器检查: business={}, item={}, result={}", business, item, result);
         return result;
     }
     

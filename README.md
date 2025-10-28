@@ -204,3 +204,18 @@
     - 迁移大部分命令行输出到slf4j+logback
     - 迁移文件数据存储结构
     - 完善部分文档
+
+### version 7 统一配置与插件实现一致性
+1. 新增统一配置文件 `src/main/resources/application.properties`：
+   - rpc.serializer.type=protobuf|json|object|0|1|2
+   - rpc.loadbalance.type=consistency_hash|random|sequence|lstm
+   - rpc.zk.connect=127.0.0.1:2285
+   - rpc.zk.sessionTimeoutMs=40000
+   - rpc.zk.namespace=MY_RPC
+   - rpc.ratelimit.impl=configurable_token_bucket|token_bucket|synchronized_token_bucket
+   - rpc.ratelimit.rate.ms=10
+   - rpc.ratelimit.capacity=300
+
+2. 配置优先级：系统属性可覆盖同名键（例如 `-Drpc.zk.connect=...`）。未提供配置文件时，系统按内置默认工作（负载均衡一致性哈希，序列化优先 Protobuf 再 JSON，限流可配置令牌桶，默认 ZK 参数）。
+
+3. 相关文档：`doc/实现一致性与配置化设计.md`

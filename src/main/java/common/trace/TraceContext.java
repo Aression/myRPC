@@ -1,6 +1,6 @@
 package common.trace;
 
-import java.util.UUID;
+import common.util.SnowflakeIdGenerator;
 
 /**
  * 链路追踪上下文
@@ -41,14 +41,16 @@ public class TraceContext {
     }
     
     public static String generateNewSpanId(String parentSpanId) {
-        return parentSpanId + "." + System.nanoTime();
+        // 使用雪花算法生成子span，仍保留父子层级结构
+        return parentSpanId + "." + SnowflakeIdGenerator.getInstance().nextIdStr();
     }
     
     private static String generateTraceId() {
-        return UUID.randomUUID().toString().replace("-", "");
+        // 使用雪花算法生成可排序、全局唯一的traceId
+        return SnowflakeIdGenerator.getInstance().nextIdStr();
     }
     
     private static String generateSpanId() {
-        return String.valueOf(System.nanoTime());
+        return SnowflakeIdGenerator.getInstance().nextIdStr();
     }
 } 

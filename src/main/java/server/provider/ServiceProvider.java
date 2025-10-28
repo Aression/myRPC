@@ -1,7 +1,7 @@
 package server.provider;
 
 import server.provider.ratelimit.RateLimit;
-import server.provider.ratelimit.RateLimitProvider;
+import server.provider.ratelimit.RateLimitProvider; // 导入我们的单例类
 import server.serviceRegister.ServiceRegister;
 import server.serviceRegister.impl.ZKServiceRegister;
 
@@ -12,8 +12,6 @@ import java.util.Map;
 public class ServiceProvider {
     //存放服务实例，<接口全限定名，接口实现类实例>
     private Map<String, Object> interfaceProvider;
-    //存放服务对应的限流器
-    private RateLimitProvider rateLimitProvider;
 
     // zookeeper相关内容
     private int port;
@@ -25,7 +23,6 @@ public class ServiceProvider {
         this.port = port;
         this.interfaceProvider = new HashMap<>();
         this.serviceRegister = new ZKServiceRegister();
-        this.rateLimitProvider = new RateLimitProvider();
     }
 
     //本地注册服务
@@ -49,8 +46,10 @@ public class ServiceProvider {
     public Object getService(String serviceName){
         return interfaceProvider.get(serviceName);
     }
+    
     //获取对应限流器
     public RateLimit getRateLimit(String serviceName){
-        return rateLimitProvider.getRateLimiter(serviceName);
+        // 直接通过 RateLimitProvider.INSTANCE 访问单例实例
+        return RateLimitProvider.INSTANCE.getRateLimiter(serviceName);
     }
 }

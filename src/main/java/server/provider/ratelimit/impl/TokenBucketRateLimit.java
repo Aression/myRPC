@@ -1,52 +1,80 @@
 package server.provider.ratelimit.impl;
 
 import server.provider.ratelimit.RateLimit;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 
-public class TokenBucketRateLimit implements RateLimit{
-    private static int waitTimeRate; // 决定是否重新生成令牌的等待时间阈值
-    private static int bucketCapacity; // 令牌桶容量上限
-    private volatile int curCapacity; // 当前的令牌桶容量
+/**
+ * 高性能令牌桶限流器
+ */
+public class TokenBucketRateLimit implements RateLimit {
 
-    private volatile long lastAccessTime; // 最后一次访问时间
+    private final int waitTimeRate;     // 生成令牌间隔(ms)
+    private final int bucketCapacity;   // 桶容量
 
-    // 添加无参构造函数，用于SPI机制加载
+    private final AtomicInteger curCapacity;    // 当前令牌数
+    private final AtomicLong lastRefillTime;    // 最后补充时间
+
     public TokenBucketRateLimit() {
-        // 默认参数
-        TokenBucketRateLimit.waitTimeRate = 100;
-        TokenBucketRateLimit.bucketCapacity = 100;
-        this.curCapacity = bucketCapacity;
-        this.lastAccessTime = System.currentTimeMillis();
+        this(100, 100);
     }
-
-    public TokenBucketRateLimit(int rate, int capacity){
-        TokenBucketRateLimit.waitTimeRate = rate;
-        TokenBucketRateLimit.bucketCapacity = capacity;
-
-        this.curCapacity = capacity;
-        this.lastAccessTime = System.currentTimeMillis();
+    
+    public TokenBucketRateLimit(int rate, int capacity) {
+        if (rate <= 0 || capacity <= 0) {
+            throw new IllegalArgumentException("参数必须为正数");
+        }
+        this.waitTimeRate = rate;
+        this.bucketCapacity = capacity;
+        this.curCapacity = new AtomicInteger(capacity);
+        this.lastRefillTime = new AtomicLong(System.currentTimeMillis());
     }
 
     @Override
-    public synchronized boolean getToken(){
-        if(curCapacity>0){
-            curCapacity--;
-            return true; // 令牌桶有容量，拿走一个令牌并返回true
-        }
-        long currentTime = System.currentTimeMillis();
-        if(currentTime - lastAccessTime>=waitTimeRate){
-            // 令牌桶没有剩余令牌
-            // 则根据距离上次请求过去的时间计算等待时间中生成的令牌数量，更新当前令牌数
-            if((currentTime-lastAccessTime)/waitTimeRate>=2){
-                curCapacity += (int)(currentTime-lastAccessTime)/waitTimeRate-1;
+    public boolean getToken() {
+        // 先尝试补充令牌
+        refillTokens();
+        
+        // CAS获取令牌
+        int current;
+        do {
+            current = curCapacity.get();
+            if (current <= 0) {
+                return false;
             }
+        } while (!curCapacity.compareAndSet(current, current - 1));
+        
+        return true;
+    }
 
-            // 保持桶容量不超过上限
-            if(curCapacity>bucketCapacity) curCapacity = bucketCapacity;
-            
-            // 更新最后一次访问时间并返回
-            lastAccessTime = currentTime;
-            return true;
+    private void refillTokens() {
+        long currentTime = System.currentTimeMillis();
+        long lastTime = lastRefillTime.get();
+        long timeDiff = currentTime - lastTime;
+        
+        // 时间间隔不足以生成令牌
+        if (timeDiff < waitTimeRate) {
+            return;
         }
-        return false; 
+        
+        // 计算应生成令牌数
+        int tokensToAdd = (int) (timeDiff / waitTimeRate);
+        if (tokensToAdd == 0) {
+            return;
+        }
+
+        // CAS更新补充时间
+        long newLastTime = lastTime + (long) tokensToAdd * waitTimeRate;
+        if (lastRefillTime.compareAndSet(lastTime, newLastTime)) {
+            // 成功获得补充权，更新令牌数
+            addTokens(tokensToAdd);
+        }
+    }
+
+    private void addTokens(int tokensToAdd) {
+        int current, newTokens;
+        do {
+            current = curCapacity.get();
+            newTokens = Math.min(bucketCapacity, current + tokensToAdd);
+        } while (!curCapacity.compareAndSet(current, newTokens));
     }
 }

@@ -1,86 +1,157 @@
 package client.serviceCenter.balance.impl;
 
+import client.serviceCenter.balance.LoadBalance;
+import common.util.AddressUtil;
+import common.util.HashUtil;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.net.InetSocketAddress;
+import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 
-import org.slf4j.*;
-
-import client.serviceCenter.balance.LoadBalance;
-import common.util.AddressUtil;
-import common.util.HashUtil;
-
-/**
- * 基于一致性哈希算法的负载均衡实现
- */
 public class ConsistencyHashBalance implements LoadBalance {
     private static final Logger logger = LoggerFactory.getLogger(ConsistencyHashBalance.class);
-    // 虚拟节点数量
-    private static final int VIRTUAL_NODE_NUM = 500;
-    // 虚拟节点后缀
+
+    // 每个真实节点对应的虚拟节点数量
+    private static final int VIRTUAL_NODE_NUM = 200;
+    // 虚拟节点后缀分隔符
     private static final String VIRTUAL_NODE_SUFFIX = "#";
+
     // 缓存不同服务的哈希环，key是服务名称
-    private final Map<String, SortedMap<Integer, InetSocketAddress>> serviceHashRingMap = new ConcurrentHashMap<>();
+    private final Map<String, HashRing> serviceHashRingMap = new ConcurrentHashMap<>();
     
+    // 引入读写锁，用于保护哈希环的重建过程
+    private final ReentrantReadWriteLock lock = new ReentrantReadWriteLock();
+    private final ReentrantReadWriteLock.ReadLock readLock = lock.readLock();
+    private final ReentrantReadWriteLock.WriteLock writeLock = lock.writeLock();
+
+
     @Override
-    public InetSocketAddress select(String serviceName, List<InetSocketAddress> addressList, String featureCode) {
-        // 获取或创建该服务的哈希环
-        SortedMap<Integer, InetSocketAddress> ring = serviceHashRingMap.computeIfAbsent(serviceName, k -> {
-            SortedMap<Integer, InetSocketAddress> newRing = new TreeMap<>();
-            // 为每个实际节点创建虚拟节点
-            for (InetSocketAddress address : addressList) {
-                addVirtualNodes(newRing, address);
-            }
-            return newRing;
-        });
-        
-        // 如果哈希环为空，则直接返回null
-        if (ring.isEmpty()) {
+    public InetSocketAddress select(String serviceName, List<InetSocketAddress> addressList, long featureCode) {
+        if (addressList == null || addressList.isEmpty()) {
+            return null;
+        }
+        if (addressList.size() == 1) {
+            return addressList.get(0);
+        }
+
+        // 获取该服务的哈希环
+        HashRing hashRing = getOrCreateHashRing(serviceName, addressList);
+
+        if (hashRing == null || hashRing.isEmpty()) {
             return null;
         }
         
-        // 使用特征码计算哈希值，调用HashUtil的方法
-        int hash = Math.abs(HashUtil.murmurHash(featureCode));
-        
-        // 获取哈希值大于等于当前哈希值的子映射
-        SortedMap<Integer, InetSocketAddress> subMap = ring.tailMap(hash);
-        
-        // 如果子映射为空，则取哈希环的第一个节点
-        Integer targetKey = subMap.isEmpty() ? ring.firstKey() : subMap.firstKey();
-        
-        // 获取目标节点地址
-        InetSocketAddress targetAddr = ring.get(targetKey);
-        
-        // 负载均衡选择日志
-        logger.info("哈希选择：服务[" + serviceName + "]，特征码[" + featureCode + "]，哈希值[" + hash + "]，选择节点[" + AddressUtil.toString(targetAddr) + "]");
+        // 直接使用已生成的特征码作为哈希值，避免重复哈希
+        long hash = featureCode;
+
+        InetSocketAddress targetAddr = hashRing.getNode(hash);
 
         return targetAddr;
     }
-    
+
     /**
-     * 添加虚拟节点到哈希环
+     * 获取或创建/更新服务的哈希环。
+     * 使用读写锁来保证并发安全和性能。
      */
-    private void addVirtualNodes(SortedMap<Integer, InetSocketAddress> ring, InetSocketAddress realNode) {
-        for (int i = 0; i < VIRTUAL_NODE_NUM; i++) {
-            // 为每个真实节点创建虚拟节点
-            String virtualNodeName = realNode.toString() + VIRTUAL_NODE_SUFFIX + i;
-            int hash = Math.abs(HashUtil.murmurHash(virtualNodeName));
-            ring.put(hash, realNode);
+    private HashRing getOrCreateHashRing(String serviceName, List<InetSocketAddress> currentAddressList) {
+        readLock.lock();
+        try {
+            HashRing hashRing = serviceHashRingMap.get(serviceName);
+            // 双重检查锁定模式（DCL）
+            // 第一次检查：如果哈希环存在且地址列表未变化，则直接返回
+            if (hashRing != null && !hashRing.hasAddressListChanged(currentAddressList)) {
+                return hashRing;
+            }
+        } finally {
+            readLock.unlock();
+        }
+
+        writeLock.lock();
+        try {
+            // 第二次检查：获取写锁后再次检查，防止其他线程已经创建
+            HashRing hashRing = serviceHashRingMap.get(serviceName);
+            if (hashRing != null && !hashRing.hasAddressListChanged(currentAddressList)) {
+                return hashRing;
+            }
+            
+            // 创建新的哈希环
+            logger.info("服务[{}]地址列表发生变化或首次创建，开始重建哈希环...", serviceName);
+            HashRing newHashRing = new HashRing(currentAddressList);
+            serviceHashRingMap.put(serviceName, newHashRing);
+            logger.info("服务[{}]哈希环重建完成，包含 {} 个真实节点和 {} 个虚拟节点。",
+                    serviceName, currentAddressList.size(), newHashRing.getVirtualNodeCount());
+            return newHashRing;
+        } finally {
+            writeLock.unlock();
         }
     }
-    
+
+
     /**
-     * 更新服务的地址列表（当服务节点变化时调用）
+     * 内部类，封装哈希环的结构和操作，使其更内聚。
      */
-    public void updateServiceAddresses(String serviceName, List<InetSocketAddress> addressList) {
-        SortedMap<Integer, InetSocketAddress> ring = new TreeMap<>();
-        for (InetSocketAddress address : addressList) {
-            addVirtualNodes(ring, address);
+    private static class HashRing {
+        private final SortedMap<Long, InetSocketAddress> ring = new TreeMap<>();
+        private final Collection<InetSocketAddress> addressSet; // 使用Set进行高效比较
+
+        public HashRing(List<InetSocketAddress> realNodes) {
+            this.addressSet = new HashSet<>(realNodes);
+            for (InetSocketAddress node : realNodes) {
+                addVirtualNodes(node);
+            }
         }
-        serviceHashRingMap.put(serviceName, ring);
+
+        /**
+         * 检查地址列表是否发生变化。
+         * 使用HashSet.equals()，高效且准确。
+         */
+        public boolean hasAddressListChanged(List<InetSocketAddress> currentAddressList) {
+            if (this.addressSet.size() != currentAddressList.size()) {
+                return true;
+            }
+            return !this.addressSet.equals(new HashSet<>(currentAddressList));
+        }
+
+        /**
+         * 添加虚拟节点到哈希环。
+         * 采用 "IP:Port#i" 的单一简洁格式生成虚拟节点key，清晰且高效。
+         */
+        private void addVirtualNodes(InetSocketAddress realNode) {
+            String nodeStr = AddressUtil.toString(realNode);
+            for (int i = 0; i < VIRTUAL_NODE_NUM; i++) {
+                String virtualNodeKey = nodeStr + VIRTUAL_NODE_SUFFIX + i;
+                long hash = HashUtil.murmurHash(virtualNodeKey);
+                ring.put(hash, realNode);
+            }
+        }
+
+        /**
+         * 根据请求的哈希值获取对应的节点。
+         */
+        public InetSocketAddress getNode(long hash) {
+            if (ring.isEmpty()) {
+                return null;
+            }
+            SortedMap<Long, InetSocketAddress> tailMap = ring.tailMap(hash);
+            Long key = tailMap.isEmpty() ? ring.firstKey() : tailMap.firstKey();
+            return ring.get(key);
+        }
+
+        public boolean isEmpty() {
+            return ring.isEmpty();
+        }
+        
+        public int getVirtualNodeCount() {
+            return ring.size();
+        }
     }
 
     @Override

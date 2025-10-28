@@ -1,3 +1,0 @@
-1. docker启动redis容器时必须指定暴露端口，否则外部宿主机无法通过指定端口访问服务
-
-e.g.    docker run -d -p 6379:6379 --name redis_container redis

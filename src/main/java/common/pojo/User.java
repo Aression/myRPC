@@ -15,4 +15,10 @@ public class User implements Serializable {
     private Integer id;
     private String userName;
     private Boolean sex;
+    private Integer age;
+    private String email;
+    private String phone;
+    private String address;
+    private String userType;
+    private Long lastUpdateTime;
 }

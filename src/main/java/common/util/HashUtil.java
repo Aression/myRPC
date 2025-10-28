@@ -12,42 +12,59 @@ public class HashUtil {
     private static final Logger logger = LoggerFactory.getLogger(HashUtil.class);
     
     /**
-     * 使用MurmurHash算法计算字符串的哈希值
+     * 使用改进的MurmurHash算法计算字符串的哈希值
      * 
      * @param key 输入字符串
      * @return 哈希值
      */
-    public static int murmurHash(String key) {
-        // 这里使用简单的实现，生产中可使用guava的Hashing
-        byte[] bytes = key.getBytes();
-        int h = 0;
-        for (byte b : bytes) {
-            h = 31 * h + (b & 0xff);
-        }
-        return h;
-    }
-    
-    /**
-     * 使用MD5算法计算字符串的哈希值
-     * 
-     * @param key 输入字符串
-     * @return 哈希值的十六进制字符串
-     */
-    public static String md5Hash(String key) {
-        try {
-            MessageDigest md = MessageDigest.getInstance("MD5");
-            md.update(key.getBytes());
-            byte[] digest = md.digest();
+    public static long murmurHash(String key) {
+        byte[] data = key.getBytes();
+        int length = data.length;
+        int seed = 0x9747b28c; // 使用固定种子
+        
+        // m和r是MurmurHash算法的魔数
+        final int m = 0x5bd1e995;
+        final int r = 24;
+        
+        // 初始化哈希值
+        int h = seed ^ length;
+        
+        // 处理所有完整的4字节块
+        int len4 = length >> 2;
+        
+        for (int i = 0; i < len4; i++) {
+            int i4 = i << 2;
+            int k = data[i4] & 0xff;
+            k |= (data[i4 + 1] & 0xff) << 8;
+            k |= (data[i4 + 2] & 0xff) << 16;
+            k |= (data[i4 + 3] & 0xff) << 24;
             
-            StringBuilder sb = new StringBuilder();
-            for (byte b : digest) {
-                sb.append(String.format("%02x", b & 0xff));
-            }
-            return sb.toString();
-        } catch (NoSuchAlgorithmException e) {
-            logger.error("MD5哈希计算失败: {}", e.getMessage(), e);
-            throw new RuntimeException("MD5哈希计算失败", e);
+            k *= m;
+            k ^= k >>> r;
+            k *= m;
+            
+            h *= m;
+            h ^= k;
         }
+        
+        // 处理剩余字节
+        int offset = len4 << 2;
+        switch (length & 3) {
+            case 3:
+                h ^= (data[offset + 2] & 0xff) << 16;
+            case 2:
+                h ^= (data[offset + 1] & 0xff) << 8;
+            case 1:
+                h ^= (data[offset] & 0xff);
+                h *= m;
+        }
+        
+        // 最终混合
+        h ^= h >>> 13;
+        h *= m;
+        h ^= h >>> 15;
+        
+        return h & 0x7fffffffffffffffL; // 确保返回正数
     }
     
     /**
@@ -58,7 +75,7 @@ public class HashUtil {
      * @param params 参数列表
      * @return 特征码
      */
-    public static String generateFeatureCode(String serviceName, String methodName, Object[] params) {
+    public static long generateFeatureCode(String serviceName, String methodName, Object[] params) {
         StringBuilder sb = new StringBuilder();
         sb.append(serviceName).append("#").append(methodName);
         
@@ -73,6 +90,6 @@ public class HashUtil {
             }
         }
         
-        return md5Hash(sb.toString());
+        return Math.abs(HashUtil.murmurHash(sb.toString()));
     }
-} 
+}

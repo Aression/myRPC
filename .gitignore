@@ -41,4 +41,4 @@ build/
 ./src/main/java/alg/
 user_data.json
 data/users.json
-logs/rpc.log
+logs/*

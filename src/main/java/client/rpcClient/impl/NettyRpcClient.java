@@ -32,7 +32,8 @@ public class NettyRpcClient implements RpcClient {
     private static final int TIMEOUT = 5;
 
     public NettyRpcClient(){
-        this(LoadBalance.BalanceType.CONSISTENCY_HASH);
+        LoadBalance loadBalance = LoadBalanceFactory.getFromConfigOrDefault();
+        this.serviceCenter = new ZKServiceCenter(loadBalance);
     }
     
     public NettyRpcClient(LoadBalance.BalanceType balanceType){

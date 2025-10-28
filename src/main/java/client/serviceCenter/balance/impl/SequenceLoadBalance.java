@@ -13,7 +13,7 @@ public class SequenceLoadBalance implements LoadBalance {
     private final AtomicInteger counter = new AtomicInteger(0);
     
     @Override
-    public InetSocketAddress select(String serviceName, List<InetSocketAddress> addressList, String featureCode) {
+    public InetSocketAddress select(String serviceName, List<InetSocketAddress> addressList, long featureCode) {
         if (addressList == null || addressList.isEmpty()) {
             return null;
         }

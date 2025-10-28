@@ -12,13 +12,16 @@ import org.slf4j.LoggerFactory;
 
 import java.util.List;
 
+/**
+ * Protobuf序列化实现
+ */
 public class ProtobufSerializer implements Serializer {
     private static final Logger logger = LoggerFactory.getLogger(ProtobufSerializer.class);
 
     @Override
     public byte[] serialize(Object obj) {
         try {
-            logger.info("开始序列化对象: {}", obj.getClass().getName());
+            logger.debug("开始序列化对象: {}", obj.getClass().getName());
             
             if (obj instanceof RpcRequest) {
                 return serializeRequest((RpcRequest) obj);
@@ -60,7 +63,6 @@ public class ProtobufSerializer implements Serializer {
         
         // 设置其他字段
         builder.setTimestamp(request.getTimestamp());
-        if (request.getFeatureCode() != null) builder.setFeatureCode(request.getFeatureCode());
         if (request.getTraceId() != null) builder.setTraceId(request.getTraceId());
         if (request.getSpanId() != null) builder.setSpanId(request.getSpanId());
         
@@ -100,7 +102,7 @@ public class ProtobufSerializer implements Serializer {
     @Override
     public Object deserialize(byte[] bytes, int messageType) {
         try {
-            logger.info("开始反序列化，消息类型: {}", messageType);
+            logger.debug("开始反序列化，消息类型: {}", messageType);
             
             switch (messageType) {
                 case 0: return deserializeRequest(bytes);
@@ -144,7 +146,6 @@ public class ProtobufSerializer implements Serializer {
         
         // 设置其他字段
         request.setTimestamp(protoRequest.getTimestamp());
-        request.setFeatureCode(protoRequest.getFeatureCode());
         request.setTraceId(protoRequest.getTraceId());
         request.setSpanId(protoRequest.getSpanId());
         

@@ -7,8 +7,6 @@ import lombok.*;
 
 @Getter
 @Setter
-@Builder
-@AllArgsConstructor
 @NoArgsConstructor
 public class RpcRequest implements Serializable {
     // 请求id
@@ -25,15 +23,28 @@ public class RpcRequest implements Serializable {
     // 请求开始时间
     private long timestamp;
 
-    // 特征码和对应的动态getter
-    private String featureCode;
-    public String getFeatureCode(){
-        if(featureCode == null || featureCode.isEmpty()) featureCode = HashUtil.generateFeatureCode(interfaceName, methodName, params);
-        return featureCode;
-    }
-
+    // 特征码 - 不通过setter修改
+    @Setter(AccessLevel.NONE)
+    private long featureCode;
 
     // 链路追踪相关字段
     private String traceId;
     private String spanId;
+    
+    @Builder
+    public RpcRequest(String requestId, String interfaceName, String methodName, 
+                    Object[] params, Class<?>[] paramsType, long timestamp, 
+                    String traceId, String spanId) {
+        this.requestId = requestId;
+        this.interfaceName = interfaceName;
+        this.methodName = methodName;
+        this.params = params;
+        this.paramsType = paramsType;
+        this.timestamp = timestamp;
+        this.traceId = traceId;
+        this.spanId = spanId;
+        
+        // 在构造时计算特征码
+        this.featureCode = HashUtil.generateFeatureCode(interfaceName, methodName, params);
+    }
 }
