@@ -42,3 +42,7 @@ build/
 user_data.json
 data/users.json
 logs/*
+archive
+archive/*
+*.jfr
+*.log

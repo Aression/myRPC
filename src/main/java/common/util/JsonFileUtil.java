@@ -34,19 +34,19 @@ public class JsonFileUtil {
         }
 
         try (FileInputStream fis = new FileInputStream(file);
-             InputStreamReader isr = new InputStreamReader(fis, StandardCharsets.UTF_8);
-             BufferedReader br = new BufferedReader(isr)) {
-            
+                InputStreamReader isr = new InputStreamReader(fis, StandardCharsets.UTF_8);
+                BufferedReader br = new BufferedReader(isr)) {
+
             StringBuilder content = new StringBuilder();
             String line;
             while ((line = br.readLine()) != null) {
                 content.append(line);
             }
-            
+
             if (content.length() == 0) {
                 return new ArrayList<>();
             }
-            
+
             JSONArray jsonArray = JSON.parseArray(content.toString());
             return jsonArray.toJavaList(User.class);
         } catch (IOException e) {
@@ -60,9 +60,9 @@ public class JsonFileUtil {
      */
     public static void saveAllUsers(List<User> users) {
         try (FileOutputStream fos = new FileOutputStream(USER_DATA_FILE);
-             OutputStreamWriter osw = new OutputStreamWriter(fos, StandardCharsets.UTF_8);
-             BufferedWriter bw = new BufferedWriter(osw)) {
-            
+                OutputStreamWriter osw = new OutputStreamWriter(fos, StandardCharsets.UTF_8);
+                BufferedWriter bw = new BufferedWriter(osw)) {
+
             String jsonString = JSON.toJSONString(users);
             bw.write(jsonString);
             bw.flush();
@@ -93,4 +93,4 @@ public class JsonFileUtil {
             logger.error("保存用户数据文件失败: {}", e.getMessage(), e);
         }
     }
-} 
+}

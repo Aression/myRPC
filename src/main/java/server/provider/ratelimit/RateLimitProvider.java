@@ -40,15 +40,15 @@ public enum RateLimitProvider {
 
     // 缓存一次性初始化结果
     private volatile RateLimitFactory cachedFactory;
-    private volatile int cachedRateMs;
+    private volatile int cachedTPS;
     private volatile int cachedCapacity;
 
     private synchronized void initIfNeeded() {
         if (cachedFactory != null) return;
 
         String implName = AppConfig.getString("rpc.ratelimit.impl", "configurable_token_bucket").toLowerCase();
-        int rateMs = AppConfig.getInt("rpc.ratelimit.rate.ms", 10);
-        int capacity = AppConfig.getInt("rpc.ratelimit.capacity", 300);
+        int tps = AppConfig.getInt("rpc.ratelimit.rate.tps", 10);
+        int capacity = AppConfig.getInt("rpc.ratelimit.capacity", 100);
 
         ServiceLoader<RateLimitFactory> loader = ServiceLoader.load(RateLimitFactory.class);
         RateLimitFactory selected = null;
@@ -72,15 +72,15 @@ public enum RateLimitProvider {
         }
 
         this.cachedFactory = selected;
-        this.cachedRateMs = rateMs;
+        this.cachedTPS = tps;
         this.cachedCapacity = capacity;
-        logger.info("RateLimitFactory 已就绪：name='{}', rateMs={}, capacity={}", implName, rateMs, capacity);
+        logger.info("RateLimitFactory 已就绪：name='{}', rateMs={}, capacity={}", implName, cachedTPS, capacity);
     }
 
     private RateLimit createRateLimiter(String serviceName) {
         initIfNeeded();
-        RateLimit rl = cachedFactory.create(cachedRateMs, cachedCapacity);
-        logger.info("成功为服务 '{}' 创建并缓存限流器实例：{}(rateMs={}, capacity={})", serviceName, rl.getClass().getName(), cachedRateMs, cachedCapacity);
+        RateLimit rl = cachedFactory.create(cachedTPS, cachedCapacity);
+        logger.info("成功为服务 '{}' 创建并缓存限流器实例：{}(tps={}, capacity={})", serviceName, rl.getClass().getName(), cachedTPS, cachedCapacity);
         return rl;
     }
 

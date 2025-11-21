@@ -4,146 +4,159 @@ import client.serviceCenter.balance.LoadBalance.BalanceType;
 import client.serviceCenter.balance.impl.ConsistencyHashBalance;
 import client.serviceCenter.balance.impl.RandomLoadBalance;
 import client.serviceCenter.balance.impl.SequenceLoadBalance;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
+import common.util.HashUtil;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Test;
 
 import java.net.InetSocketAddress;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import common.util.HashUtil;
 
-public class LoadBalanceTest {
+import static org.junit.jupiter.api.Assertions.*;
 
-    private List<InetSocketAddress> addressList;
-    private String serviceName;
+@DisplayName("LoadBalance 策略测试")
+class LoadBalanceTest {
+
     private static final int ADDRESS_COUNT = 10;
     private static final int TEST_TIMES = 1000;
-    
-    @Before
-    public void setUp() {
-        // 初始化测试数据
+    private List<InetSocketAddress> addressList;
+    private String serviceName;
+
+    @BeforeEach
+    void setUp() {
         serviceName = "com.test.UserService";
         addressList = new ArrayList<>();
-        
-        // 创建10个测试地址
         for (int i = 1; i <= ADDRESS_COUNT; i++) {
             addressList.add(new InetSocketAddress("192.168.1." + i, 8000 + i));
         }
     }
-    
-    @Test
-    public void testLoadBalanceFactory() {
-        // 测试工厂类能否正确创建各种负载均衡器
-        LoadBalance randomBalance = LoadBalanceFactory.getLoadBalance(BalanceType.RANDOM);
-        Assert.assertNotNull("随机负载均衡器不应为空", randomBalance);
-        Assert.assertEquals("负载均衡器类型应为RANDOM", BalanceType.RANDOM, randomBalance.getType());
-        
-        LoadBalance sequenceBalance = LoadBalanceFactory.getLoadBalance(BalanceType.SEQUENCE);
-        Assert.assertNotNull("顺序负载均衡器不应为空", sequenceBalance);
-        Assert.assertEquals("负载均衡器类型应为SEQUENCE", BalanceType.SEQUENCE, sequenceBalance.getType());
-        
-        LoadBalance consistencyHashBalance = LoadBalanceFactory.getLoadBalance(BalanceType.CONSISTENCY_HASH);
-        Assert.assertNotNull("一致性哈希负载均衡器不应为空", consistencyHashBalance);
-        Assert.assertEquals("负载均衡器类型应为CONSISTENCY_HASH", BalanceType.CONSISTENCY_HASH, consistencyHashBalance.getType());
-    }
-    
-    @Test
-    public void testRandomLoadBalance() {
-        LoadBalance loadBalance = new RandomLoadBalance();
-        Map<InetSocketAddress, Integer> countMap = new HashMap<>();
-        
-        // 进行多次选择，统计每个地址被选中的次数
-        for (int i = 0; i < TEST_TIMES; i++) {
-            InetSocketAddress selected = loadBalance.select(serviceName, addressList, 0);
-            Assert.assertNotNull("选中的地址不应为空", selected);
-            countMap.put(selected, countMap.getOrDefault(selected, 0) + 1);
+
+    @Nested
+    @DisplayName("Factory 构造能力")
+    class LoadBalanceFactoryTests {
+
+        @Test
+        @DisplayName("可按类型获取随机策略")
+        void shouldCreateRandomLoadBalance() {
+            LoadBalance loadBalance = LoadBalanceFactory.getLoadBalance(BalanceType.RANDOM);
+            assertNotNull(loadBalance, "随机策略实例不应为空");
+            assertEquals(BalanceType.RANDOM, loadBalance.getType(), "策略类型应匹配");
         }
-        
-        // 验证每个地址都有被选中的机会
-        Assert.assertEquals("所有地址都应该有被选中的机会", ADDRESS_COUNT, countMap.size());
-        
-        // 打印每个地址被选中的次数，用于观察分布是否均匀
-        for (Map.Entry<InetSocketAddress, Integer> entry : countMap.entrySet()) {
-            System.out.println("地址: " + entry.getKey() + ", 被选中次数: " + entry.getValue());
+
+        @Test
+        @DisplayName("可按类型获取顺序策略")
+        void shouldCreateSequenceLoadBalance() {
+            LoadBalance loadBalance = LoadBalanceFactory.getLoadBalance(BalanceType.SEQUENCE);
+            assertNotNull(loadBalance, "顺序策略实例不应为空");
+            assertEquals(BalanceType.SEQUENCE, loadBalance.getType(), "策略类型应匹配");
         }
-    }
-    
-    @Test
-    public void testSequenceLoadBalance() {
-        LoadBalance loadBalance = new SequenceLoadBalance();
-        List<InetSocketAddress> selectedList = new ArrayList<>();
-        
-        // 连续选择ADDRESS_COUNT*2次，应该是两轮循环
-        for (int i = 0; i < ADDRESS_COUNT * 2; i++) {
-            InetSocketAddress selected = loadBalance.select(serviceName, addressList, 0);
-            Assert.assertNotNull("选中的地址不应为空", selected);
-            selectedList.add(selected);
-        }
-        
-        // 验证第一轮和第二轮选择的地址是否一致
-        for (int i = 0; i < ADDRESS_COUNT; i++) {
-            Assert.assertEquals("第一轮和第二轮选择的地址应该一致", 
-                    selectedList.get(i), selectedList.get(i + ADDRESS_COUNT));
-        }
-    }
-    
-    @Test
-    public void testConsistencyHashBalance() {
-        LoadBalance loadBalance = new ConsistencyHashBalance();
-        Map<InetSocketAddress, Integer> countMap = new HashMap<>();
-        
-        // 使用不同的特征码进行选择（传入已哈希的特征码，避免重复哈希）
-        for (long i = 1; i <= TEST_TIMES; i++) {
-            long featureCode = HashUtil.murmurHash(String.valueOf(i));
-            InetSocketAddress selected = loadBalance.select(serviceName, addressList, featureCode);
-            Assert.assertNotNull("选中的地址不应为空", selected);
-            countMap.put(selected, countMap.getOrDefault(selected, 0) + 1);
-        }
-        
-        // 验证所有地址都被选中
-        Assert.assertEquals("所有地址都应该被选中", ADDRESS_COUNT, countMap.size());
-        
-        // 验证相同的特征码是否总是选择相同的地址
-        for (long i = 1; i <= 10; i++) {
-            long featureCode = HashUtil.murmurHash(String.valueOf(i));
-            InetSocketAddress firstSelected = loadBalance.select(serviceName, addressList, featureCode);
-            InetSocketAddress secondSelected = loadBalance.select(serviceName, addressList, featureCode);
-            Assert.assertEquals("相同特征码应该选择相同的地址", firstSelected, secondSelected);
-        }
-        
-        // 打印每个地址被选中的次数，用于观察分布
-        for (Map.Entry<InetSocketAddress, Integer> entry : countMap.entrySet()) {
-            System.out.println("地址: " + entry.getKey() + ", 被选中次数: " + entry.getValue());
+
+        @Test
+        @DisplayName("可按类型获取一致性哈希策略")
+        void shouldCreateConsistencyHashLoadBalance() {
+            LoadBalance loadBalance = LoadBalanceFactory.getLoadBalance(BalanceType.CONSISTENCY_HASH);
+            assertNotNull(loadBalance, "一致性哈希策略实例不应为空");
+            assertEquals(BalanceType.CONSISTENCY_HASH, loadBalance.getType(), "策略类型应匹配");
         }
     }
 
-    @Test
-    public void testGenerateFeatureCodeRoutingConsistency() {
-        LoadBalance loadBalance = new ConsistencyHashBalance();
-        String methodName = "getUserById";
-        
-        // 相同的请求（相同的参数值），应生成相同特征码并路由到同一节点
-        Object[] params1 = new Object[]{1};
-        long featureCode1 = HashUtil.generateFeatureCode(serviceName, methodName, params1);
-        InetSocketAddress nodeA1 = loadBalance.select(serviceName, addressList, featureCode1);
-        InetSocketAddress nodeA2 = loadBalance.select(serviceName, addressList, featureCode1);
-        Assert.assertEquals("相同请求应路由到同一节点", nodeA1, nodeA2);
-        
-        // 即使是新的对象实例但参数值相同，也应生成相同特征码并路由一致
-        Object[] params1b = new Object[]{1};
-        long featureCode1b = HashUtil.generateFeatureCode(serviceName, methodName, params1b);
-        Assert.assertEquals("相同参数值应生成相同特征码", featureCode1, featureCode1b);
-        InetSocketAddress nodeA3 = loadBalance.select(serviceName, addressList, featureCode1b);
-        Assert.assertEquals("相同参数值的请求应路由到同一节点", nodeA1, nodeA3);
-        
-        // 另一个不同的请求，验证其自身的一致性（不强制不同节点）
-        Object[] params2 = new Object[]{2};
-        long featureCode2 = HashUtil.generateFeatureCode(serviceName, methodName, params2);
-        InetSocketAddress nodeB1 = loadBalance.select(serviceName, addressList, featureCode2);
-        InetSocketAddress nodeB2 = loadBalance.select(serviceName, addressList, featureCode2);
-        Assert.assertEquals("相同请求应路由到同一节点", nodeB1, nodeB2);
+    @Nested
+    @DisplayName("随机策略")
+    class RandomLoadBalanceTests {
+
+        @Test
+        @DisplayName("所有节点都应该被选到")
+        void shouldCoverAllNodes() {
+            LoadBalance loadBalance = new RandomLoadBalance();
+            Map<InetSocketAddress, Integer> counter = new HashMap<>();
+            for (int i = 0; i < TEST_TIMES; i++) {
+                InetSocketAddress address = loadBalance.select(serviceName, addressList, 0);
+                assertNotNull(address, "随机策略返回地址不应为空");
+                counter.put(address, counter.getOrDefault(address, 0) + 1);
+            }
+            assertEquals(ADDRESS_COUNT, counter.size(), "所有节点都应该被选中");
+        }
+    }
+
+    @Nested
+    @DisplayName("顺序策略")
+    class SequenceLoadBalanceTests {
+
+        @Test
+        @DisplayName("遍历序列应保持循环顺序")
+        void shouldIterateInSequence() {
+            LoadBalance loadBalance = new SequenceLoadBalance();
+            List<InetSocketAddress> selected = new ArrayList<>();
+            for (int i = 0; i < ADDRESS_COUNT * 2; i++) {
+                InetSocketAddress address = loadBalance.select(serviceName, addressList, 0);
+                assertNotNull(address, "顺序策略返回地址不应为空");
+                selected.add(address);
+            }
+            for (int i = 0; i < ADDRESS_COUNT; i++) {
+                assertEquals(selected.get(i), selected.get(i + ADDRESS_COUNT), "顺序策略应按固定顺序循环");
+            }
+        }
+    }
+
+    @Nested
+    @DisplayName("一致性哈希策略")
+    class ConsistencyHashBalanceTests {
+
+        @Test
+        @DisplayName("所有节点都应参与分发")
+        void shouldCoverAllNodes() {
+            LoadBalance loadBalance = new ConsistencyHashBalance();
+            Map<InetSocketAddress, Integer> counter = new HashMap<>();
+            for (long i = 1; i <= TEST_TIMES; i++) {
+                InetSocketAddress address = selectWithFeature(loadBalance, i);
+                assertNotNull(address, "返回地址不应为空");
+                counter.put(address, counter.getOrDefault(address, 0) + 1);
+            }
+            assertEquals(ADDRESS_COUNT, counter.size(), "所有节点都应被选中");
+        }
+
+        @Test
+        @DisplayName("相同特征码应始终命中同一节点")
+        void shouldRouteSameFeatureCodeToSameNode() {
+            LoadBalance loadBalance = new ConsistencyHashBalance();
+            for (long i = 1; i <= 10; i++) {
+                InetSocketAddress first = selectWithFeature(loadBalance, i);
+                InetSocketAddress second = selectWithFeature(loadBalance, i);
+                assertEquals(first, second, "相同特征码应稳定命中同一节点");
+            }
+        }
+
+        @Test
+        @DisplayName("generateFeatureCode 应确保请求重试一致")
+        void shouldProduceStableRoutingForIdenticalRequests() {
+            LoadBalance loadBalance = new ConsistencyHashBalance();
+            String methodName = "getUserById";
+            Object[] params1 = new Object[]{1};
+            long featureCode1 = HashUtil.generateFeatureCode(serviceName, methodName, params1);
+            InetSocketAddress node1 = loadBalance.select(serviceName, addressList, featureCode1);
+            InetSocketAddress node2 = loadBalance.select(serviceName, addressList, featureCode1);
+            assertEquals(node1, node2, "相同参数的请求应命中同一节点");
+
+            Object[] params1b = new Object[]{1};
+            long featureCode1b = HashUtil.generateFeatureCode(serviceName, methodName, params1b);
+            assertEquals(featureCode1, featureCode1b, "参数相同应产生相同特征码");
+            InetSocketAddress node3 = loadBalance.select(serviceName, addressList, featureCode1b);
+            assertEquals(node1, node3, "相同特征码的请求应命中同一节点");
+
+            Object[] params2 = new Object[]{2};
+            long featureCode2 = HashUtil.generateFeatureCode(serviceName, methodName, params2);
+            InetSocketAddress nodeOther1 = loadBalance.select(serviceName, addressList, featureCode2);
+            InetSocketAddress nodeOther2 = loadBalance.select(serviceName, addressList, featureCode2);
+            assertEquals(nodeOther1, nodeOther2, "另一组相同参数也应命中同一节点");
+        }
+
+        private InetSocketAddress selectWithFeature(LoadBalance loadBalance, long seed) {
+            long featureCode = HashUtil.murmurHash(String.valueOf(seed));
+            return loadBalance.select(serviceName, addressList, featureCode);
+        }
     }
 }

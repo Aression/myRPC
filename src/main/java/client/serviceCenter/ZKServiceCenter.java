@@ -13,7 +13,9 @@ import org.apache.curator.framework.recipes.cache.CuratorCache;
 import org.apache.curator.framework.recipes.cache.CuratorCacheListener;
 import org.apache.curator.retry.ExponentialBackoffRetry;
 import org.slf4j.Logger;
+
 import org.slf4j.LoggerFactory;
+import client.proxy.breaker.BreakerProvider;
 
 import java.net.InetSocketAddress;
 import java.util.Collections;
@@ -32,10 +34,10 @@ public class ZKServiceCenter implements ServiceCenter, AutoCloseable {
 
     private final Map<String, Map<InetSocketAddress, AtomicLong>> serviceRequestStats = new ConcurrentHashMap<>();
     private final Map<String, AtomicLong> serviceTotalRequests = new ConcurrentHashMap<>();
-    
+
     private final LoadBalance loadBalance;
     private final ZKCache serviceAddressCache;
-    
+
     // 用于管理和关闭 CuratorCache 实例，防止资源泄露
     private final Map<String, CuratorCache> watcherMap = new ConcurrentHashMap<>();
 
@@ -59,8 +61,8 @@ public class ZKServiceCenter implements ServiceCenter, AutoCloseable {
 
     /**
      * @deprecated 当使用一致性哈希时，不推荐使用此方法。
-     * 它内部生成一个随机特征码，这将导致一致性哈希退化为随机负载均衡。
-     * 建议使用 {@link #serviceDiscovery(String, long)} 并传入有业务意义的特征码。
+     *             它内部生成一个随机特征码，这将导致一致性哈希退化为随机负载均衡。
+     *             建议使用 {@link #serviceDiscovery(String, long)} 并传入有业务意义的特征码。
      */
     @Override
     @Deprecated
@@ -99,9 +101,23 @@ public class ZKServiceCenter implements ServiceCenter, AutoCloseable {
             // 将地址列表转换为 InetSocketAddress 列表
             List<InetSocketAddress> inetSocketAddressList = convertToSocketAddressList(addressList);
 
+            // 过滤掉熔断器不可用的节点
+            List<InetSocketAddress> availableAddressList = inetSocketAddressList.stream()
+                    .filter(addr -> BreakerProvider.getInstance().getBreaker(addr).isAvailable())
+                    .collect(Collectors.toList());
+
+            if (availableAddressList.isEmpty()) {
+                // 如果所有节点都熔断了，尝试使用全部节点（或者直接失败，这里选择尝试全部，让 NettyRpcClient 去触发熔断更新）
+                // 但根据 isAvailable 的逻辑，只有 OPEN 且未到重试时间的才会被过滤。
+                // 如果全部 OPEN 且未到时间，那么应该返回 null 或者抛出异常。
+                // 这里我们返回 null，表示无可用服务
+                logger.warn("服务 {} 所有节点均处于熔断状态", serviceName);
+                return null;
+            }
+
             // 使用负载均衡策略选择服务节点
-            // 传入最新的地址列表，负载均衡器内部会自动处理哈希环的更新
-            InetSocketAddress socketAddress = loadBalance.select(serviceName, inetSocketAddressList, featureCode);
+            // 传入过滤后的地址列表
+            InetSocketAddress socketAddress = loadBalance.select(serviceName, availableAddressList, featureCode);
 
             // 更新服务请求统计
             updateStats(serviceName, socketAddress);
@@ -150,7 +166,7 @@ public class ZKServiceCenter implements ServiceCenter, AutoCloseable {
 
             // 【核心修改】只更新当前服务的缓存，而不是清空所有
             serviceAddressCache.setServices(serviceName, newAddressList);
-            
+
             // 【核心修改】不再需要手动调用 updateServiceAddresses
             // 新的 ConsistencyHashBalance 会在下次 select 时自动更新哈希环
 
@@ -159,7 +175,7 @@ public class ZKServiceCenter implements ServiceCenter, AutoCloseable {
             logger.error("通过监听器更新缓存失败: {}", e.getMessage(), e);
         }
     }
-    
+
     // 提取出的辅助方法，用于更新统计信息
     private void updateStats(String serviceName, InetSocketAddress socketAddress) {
         if (socketAddress != null) {
@@ -198,15 +214,15 @@ public class ZKServiceCenter implements ServiceCenter, AutoCloseable {
     @Override
     public boolean checkRetry(String serviceName) {
         boolean canRetry = false;
-        try{
-            List<String> serviceList = client.getChildren().forPath("/"+RETRY_GROUP);
-            for(String s:serviceList){
-                if(s.equals(serviceName)){
+        try {
+            List<String> serviceList = client.getChildren().forPath("/" + RETRY_GROUP);
+            for (String s : serviceList) {
+                if (s.equals(serviceName)) {
                     logger.info("服务{}在重试白名单上，允许重试", serviceName);
                     canRetry = true;
                 }
             }
-        }catch(Exception e){
+        } catch (Exception e) {
             logger.error("检查服务重试白名单失败: {}", e.getMessage(), e);
         }
         return canRetry; // 默认返回false

@@ -1,7 +1,5 @@
 package client.proxy;
 
-import client.proxy.breaker.Breaker;
-import client.proxy.breaker.BreakerProvider;
 import client.retry.GuavaRetry;
 import client.rpcClient.RpcClient;
 import com.alibaba.fastjson.JSON;
@@ -30,7 +28,6 @@ public class LambdaMetafactoryProxyFactory {
     private static final Logger logger = LoggerFactory.getLogger(LambdaMetafactoryProxyFactory.class);
 
     private final RpcClient rpcClient;
-    private final BreakerProvider breakerProvider;
     private final GuavaRetry guavaRetry = new GuavaRetry();
 
     // 缓存每个方法对应的快速调用器
@@ -39,7 +36,6 @@ public class LambdaMetafactoryProxyFactory {
     // 构造函数使用依赖注入，更加灵活
     public LambdaMetafactoryProxyFactory(RpcClient rpcClient) {
         this.rpcClient = rpcClient;
-        this.breakerProvider = new BreakerProvider();
     }
 
     @SuppressWarnings("unchecked")
@@ -52,14 +48,13 @@ public class LambdaMetafactoryProxyFactory {
             }
             // 从缓存获取执行器，如果不存在则创建
             return methodCache.computeIfAbsent(method, this::createMethodExecutor)
-                              .apply(args);
+                    .apply(args);
         };
 
         return (T) Proxy.newProxyInstance(
                 interfaceClass.getClassLoader(),
-                new Class[]{interfaceClass},
-                handler
-        );
+                new Class[] { interfaceClass },
+                handler);
     }
 
     /**
@@ -69,7 +64,8 @@ public class LambdaMetafactoryProxyFactory {
         try {
             // 找到我们实际要执行的业务逻辑方法，即 handleRpcCall
             MethodHandle handleRpcCallHandle = MethodHandles.lookup()
-                    .findVirtual(LambdaMetafactoryProxyFactory.class, "handleRpcCall", MethodType.methodType(Object.class, Method.class, Object[].class));
+                    .findVirtual(LambdaMetafactoryProxyFactory.class, "handleRpcCall",
+                            MethodType.methodType(Object.class, Method.class, Object[].class));
 
             // 将 this（当前工厂实例）和 method（被代理的方法）作为参数绑定到 MethodHandle 上
             MethodHandle boundHandle = handleRpcCallHandle.bindTo(this).bindTo(method);
@@ -89,11 +85,12 @@ public class LambdaMetafactoryProxyFactory {
             throw new RuntimeException("Failed to create method executor for " + method.getName(), e);
         }
     }
-    
+
     /**
      * 统一的 RPC 调用处理逻辑，这个方法将被 MethodHandle 指向
+     * 
      * @param method 被调用的接口方法
-     * @param args 方法参数
+     * @param args   方法参数
      * @return RPC 调用结果
      */
     public Object handleRpcCall(Method method, Object[] args) {
@@ -106,12 +103,6 @@ public class LambdaMetafactoryProxyFactory {
                 .paramsType(method.getParameterTypes())
                 .timestamp(System.currentTimeMillis())
                 .build();
-        
-        Breaker breaker = breakerProvider.getBreaker(method.getName());
-        if (!breaker.allowRequest()) {
-            logger.warn("熔断器触发，方法 {} 被拒绝", method.getName());
-            return createFallbackResult(method.getGenericReturnType(), 429, "服务熔断中，请稍后重试");
-        }
 
         RpcResponse response;
         try {
@@ -121,34 +112,23 @@ public class LambdaMetafactoryProxyFactory {
                 response = rpcClient.sendRequest(request);
             }
         } catch (Exception e) {
-            // 记录异常并触发熔断
+            // 记录异常
             logger.error("RPC call failed for method {}", method.getName(), e);
-            breaker.recordFailure();
             return createFallbackResult(method.getGenericReturnType(), 500, "RPC 调用异常: " + e.getMessage());
         }
 
         if (response == null) {
             logger.warn("RPC服务调用失败，返回空响应");
-            breaker.recordFailure();
             return createFallbackResult(method.getGenericReturnType(), 500, "服务返回空响应");
         }
 
-        updateBreakerStatus(breaker, response.getCode());
         long elapsedTime = System.currentTimeMillis() - startTime;
         logger.info("方法 {} 执行耗时: {}ms, 状态码: {}", method.getName(), elapsedTime, response.getCode());
-        
+
         return processResponse(method.getGenericReturnType(), response);
     }
-    
-    // --- 以下是辅助方法，从原来的 invoke 方法中提取和优化 ---
 
-    private void updateBreakerStatus(Breaker breaker, int statusCode) {
-        if (statusCode >= 500 || statusCode == 429) { // 仅对服务端错误和熔断请求计为失败
-            breaker.recordFailure();
-        } else {
-            breaker.recordSuccess(); // 其他（包括4xx客户端错误）都算作网络成功
-        }
-    }
+    // --- 以下是辅助方法，从原来的 invoke 方法中提取和优化 ---
 
     private Object processResponse(Type returnType, RpcResponse response) {
         if (returnType instanceof ParameterizedType) {
@@ -166,7 +146,7 @@ public class LambdaMetafactoryProxyFactory {
                         data = JSON.parseObject(jsonStr, dataClass);
                     }
                 }
-                
+
                 if (response.getCode() == 200) {
                     return Result.success(data, response.getMessage());
                 } else {
@@ -177,7 +157,7 @@ public class LambdaMetafactoryProxyFactory {
         // 对于非 Result 类型的返回，直接返回数据
         return response.getData();
     }
-    
+
     /**
      * 当请求被熔断或发生异常时，根据方法的返回类型创建一个优雅的失败/降级结果
      */
@@ -188,6 +168,6 @@ public class LambdaMetafactoryProxyFactory {
         // 如果返回类型不是 Result<T>，无法创建有意义的降级结果，只能返回 null 或抛出异常
         // 在微服务实践中，推荐所有可能失败的服务调用都返回统一的 Result<T> 封装
         logger.warn("无法为非Result类型的返回创建降级结果，将返回null。方法返回类型: {}", returnType.getTypeName());
-        return null; 
+        return null;
     }
 }

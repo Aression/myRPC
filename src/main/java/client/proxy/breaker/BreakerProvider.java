@@ -2,23 +2,36 @@ package client.proxy.breaker;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.net.InetSocketAddress;
 
 import org.slf4j.*;
 import common.util.AppConfig;
 
 public class BreakerProvider {
     private static final Logger logger = LoggerFactory.getLogger(BreakerProvider.class);
-    private Map<String, Breaker> breakerMap = new ConcurrentHashMap<>();
-    
+    private Map<InetSocketAddress, Breaker> breakerMap = new ConcurrentHashMap<>();
+
+    // 单例模式
+    private static final BreakerProvider INSTANCE = new BreakerProvider();
+
+    private BreakerProvider() {
+    }
+
+    public static BreakerProvider getInstance() {
+        return INSTANCE;
+    }
+
     // 从配置加载的全局默认参数（支持系统属性与配置文件）
     private volatile Integer cachedFailureThreshold;
     private volatile Double cachedHalf2OpenSuccessRate;
     private volatile Long cachedRetryTimePeriodMs;
-    
-    private void initIfNeeded(){
-        if(cachedFailureThreshold != null) return;
-        synchronized (this){
-            if(cachedFailureThreshold != null) return;
+
+    private void initIfNeeded() {
+        if (cachedFailureThreshold != null)
+            return;
+        synchronized (this) {
+            if (cachedFailureThreshold != null)
+                return;
             int failureThreshold = AppConfig.getInt("rpc.breaker.failureThreshold", 1);
             // 解析 double：优先字符串，其次默认
             double half2OpenSuccessRate;
@@ -38,16 +51,16 @@ public class BreakerProvider {
                     failureThreshold, half2OpenSuccessRate, retryTimePeriodMs);
         }
     }
-    
-    public synchronized Breaker getBreaker(String serviceName){
+
+    public synchronized Breaker getBreaker(InetSocketAddress address) {
         initIfNeeded();
         Breaker breaker;
-        if(breakerMap.containsKey(serviceName)){
-            breaker = breakerMap.get(serviceName);
-        }else{
-            logger.info("为服务"+serviceName+"创建一个新的熔断器");
+        if (breakerMap.containsKey(address)) {
+            breaker = breakerMap.get(address);
+        } else {
+            logger.info("为节点 " + address + " 创建一个新的熔断器");
             breaker = new Breaker(cachedFailureThreshold, cachedHalf2OpenSuccessRate, cachedRetryTimePeriodMs);
-            breakerMap.put(serviceName, breaker);
+            breakerMap.put(address, breaker);
         }
         return breaker;
     }

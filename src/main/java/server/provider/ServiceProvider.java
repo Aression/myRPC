@@ -10,7 +10,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class ServiceProvider {
-    //存放服务实例，<接口全限定名，接口实现类实例>
+    // 存放服务实例，<接口全限定名，接口实现类实例>
     private Map<String, Object> interfaceProvider;
 
     // zookeeper相关内容
@@ -18,38 +18,43 @@ public class ServiceProvider {
     private String host;
     private ServiceRegister serviceRegister;
 
-    public ServiceProvider(String host, int port){
+    private ServiceInvoker serviceInvoker;
+
+    public ServiceProvider(String host, int port) {
         this.host = host;
         this.port = port;
         this.interfaceProvider = new HashMap<>();
         this.serviceRegister = new ZKServiceRegister();
+        this.serviceInvoker = new LambdaMetafactoryInvoker();
     }
 
-    //本地注册服务
-    public void provideServiceInterface(Object service, boolean canRetry){
+    // 本地注册服务
+    public void provideServiceInterface(Object service, boolean canRetry) {
         String serviceName = service.getClass().getName();
         Class<?>[] interfaceNames = service.getClass().getInterfaces();
-        for(Class<?> clazz:interfaceNames){
+        for (Class<?> clazz : interfaceNames) {
             interfaceProvider.put(
                     clazz.getName(),
-                    service
-            );//将接口的全限定名和对应服务实例注册到map中
+                    service);// 将接口的全限定名和对应服务实例注册到map中
             serviceRegister.register(
                     clazz.getName(),
                     new InetSocketAddress(host, port),
-                    canRetry
-            );//同时在zookeeper中注册服务
+                    canRetry);// 同时在zookeeper中注册服务
         }
     }
 
-    //从map获取服务实例
-    public Object getService(String serviceName){
+    // 从map获取服务实例
+    public Object getService(String serviceName) {
         return interfaceProvider.get(serviceName);
     }
-    
-    //获取对应限流器
-    public RateLimit getRateLimit(String serviceName){
+
+    // 获取对应限流器
+    public RateLimit getRateLimit(String serviceName) {
         // 直接通过 RateLimitProvider.INSTANCE 访问单例实例
         return RateLimitProvider.INSTANCE.getRateLimiter(serviceName);
+    }
+
+    public ServiceInvoker getServiceInvoker() {
+        return serviceInvoker;
     }
 }

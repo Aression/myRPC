@@ -19,8 +19,8 @@ public class ZKServiceRegister implements ServiceRegister {
     private static final String ROOT_PATH = "MY_RPC";
     private static final String RETRY_GROUP = "CanRetry";
 
-    //负责zookeeper客户端的初始化，并与zookeeper服务端进行连接
-    public ZKServiceRegister(){
+    // 负责zookeeper客户端的初始化，并与zookeeper服务端进行连接
+    public ZKServiceRegister() {
         // 指数时间重试
         RetryPolicy policy = new ExponentialBackoffRetry(1000, 3);
         // zookeeper的地址固定，不管是服务提供者还是，消费者都要与之建立连接

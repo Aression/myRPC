@@ -26,23 +26,32 @@ public final class AppConfig {
             } else {
                 logger.info("未找到 application.properties，使用内置默认与系统属性");
             }
+            logger.info("========== 配置检查 ==========");
+            for (String key : PROPS.stringPropertyNames()) {
+                if (key.contains("rpc"))
+                    logger.info(key + " = " + PROPS.getProperty(key));
+            }
+            logger.info("================================");
         } catch (IOException e) {
             logger.warn("加载 application.properties 失败: {}", e.getMessage());
         }
     }
 
-    private AppConfig() {}
+    private AppConfig() {
+    }
 
     public static String getString(String key, String defaultValue) {
         String sysVal = System.getProperty(key);
-        if (sysVal != null && !sysVal.isEmpty()) return sysVal;
+        if (sysVal != null && !sysVal.isEmpty())
+            return sysVal;
         String val = PROPS.getProperty(key);
         return val != null ? val : defaultValue;
     }
 
     public static int getInt(String key, int defaultValue) {
         String str = getString(key, null);
-        if (str == null) return defaultValue;
+        if (str == null)
+            return defaultValue;
         try {
             return Integer.parseInt(str.trim());
         } catch (NumberFormatException e) {
@@ -52,7 +61,8 @@ public final class AppConfig {
 
     public static <E extends Enum<E>> E getEnumIgnoreCase(String key, Class<E> enumType, E defaultValue) {
         String str = getString(key, null);
-        if (str == null) return defaultValue;
+        if (str == null)
+            return defaultValue;
         try {
             return Enum.valueOf(enumType, str.trim().toUpperCase(Locale.ROOT));
         } catch (IllegalArgumentException ex) {
@@ -62,10 +72,9 @@ public final class AppConfig {
 
     public static boolean getBoolean(String key, boolean defaultValue) {
         String str = getString(key, null);
-        if (str == null) return defaultValue;
+        if (str == null)
+            return defaultValue;
         return Objects.equals("true", str.trim().toLowerCase(Locale.ROOT))
                 || Objects.equals("1", str.trim());
     }
 }
-
-

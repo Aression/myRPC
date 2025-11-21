@@ -1,66 +1,21 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <configuration>
-    <!-- 控制台输出 -->
     <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
         <encoder>
             <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
-            <charset>UTF-8</charset> <!-- 显式指定UTF-8，防止随平台变化 -->
-        </encoder>
-    </appender>
-
-    <!-- 文件输出：按天切分，当前文件名也带日期 -->
-    <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
-        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
-            <!-- 每天一个文件，如 logs/rpc.2025-10-28.log -->
-            <fileNamePattern>logs/rpc.%d{yyyy-MM-dd}.log</fileNamePattern>
-            <!-- 历史文件保留 30 天，启动时清理过期文件 -->
-            <maxHistory>30</maxHistory>
-            <cleanHistoryOnStart>true</cleanHistoryOnStart>
-        </rollingPolicy>
-        <encoder>
-            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
             <charset>UTF-8</charset>
         </encoder>
     </appender>
 
-    <!-- Debug 明细输出：仅记录 DEBUG/TRACE，按天滚动独立文件 -->
-    <appender name="DEBUG_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
-        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
-            <fileNamePattern>logs/debug.%d{yyyy-MM-dd}.log</fileNamePattern>
-            <maxHistory>7</maxHistory>
-            <cleanHistoryOnStart>true</cleanHistoryOnStart>
-        </rollingPolicy>
-        <!-- 仅接受 DEBUG 和 TRACE，避免写入 INFO+ 到调试文件 -->
-        <filter class="ch.qos.logback.classic.filter.LevelFilter">
-            <level>DEBUG</level>
-            <onMatch>ACCEPT</onMatch>
-            <onMismatch>DENY</onMismatch>
-        </filter>
-        <filter class="ch.qos.logback.classic.filter.LevelFilter">
-            <level>TRACE</level>
-            <onMatch>ACCEPT</onMatch>
-            <onMismatch>DENY</onMismatch>
-        </filter>
-        <encoder>
-            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
-            <charset>UTF-8</charset>
-        </encoder>
-    </appender>
-
-    <!-- 业务包：开放 DEBUG 级别并将 DEBUG/TRACE 额外写入独立文件；INFO+ 仍向上冒泡到 root 输出 -->
-    <logger name="server" level="DEBUG">
-        <appender-ref ref="DEBUG_FILE"/>
-    </logger>
-    <logger name="client" level="DEBUG">
-        <appender-ref ref="DEBUG_FILE"/>
-    </logger>
-    <logger name="common" level="DEBUG">
-        <appender-ref ref="DEBUG_FILE"/>
-    </logger>
+    <!-- 业务包：设置为 ERROR 级别，避免大量日志输出 -->
+    <logger name="server" level="ERROR"/>
+    <logger name="client" level="ERROR"/>
+    <logger name="common" level="ERROR"/>
+    <logger name="org.apache.curator" level="ERROR"/>
+    <logger name="org.apache.zookeeper" level="ERROR"/>
 
     <!-- 根日志级别 -->
-    <root level="INFO">
+    <root level="WARN">
         <appender-ref ref="CONSOLE"/>
-        <appender-ref ref="FILE"/>
     </root>
-</configuration> 
+</configuration>

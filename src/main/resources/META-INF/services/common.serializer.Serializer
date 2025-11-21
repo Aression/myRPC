@@ -1,2 +1,4 @@
 common.serializer.impl.JsonSerializer
 common.serializer.impl.ProtobufSerializer
+common.serializer.impl.ObjectSerializer
+common.serializer.impl.KryoSerializer

@@ -12,7 +12,7 @@ import java.io.Serializable;
 @NoArgsConstructor
 @AllArgsConstructor
 public class User implements Serializable {
-    private Integer id;
+    private Long id;
     private String userName;
     private Boolean sex;
     private Integer age;

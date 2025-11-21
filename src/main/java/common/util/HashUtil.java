@@ -1,7 +1,5 @@
 package common.util;
 
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

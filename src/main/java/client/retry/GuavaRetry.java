@@ -11,19 +11,21 @@ import common.message.RpcResponse;
 import org.slf4j.*;
 import java.util.concurrent.TimeUnit;
 
+@SuppressWarnings("deprecation")
 public class GuavaRetry {
     private static final Logger logger = LoggerFactory.getLogger(GuavaRetry.class);
     private RpcClient rpcClient;
-    public RpcResponse sendServiceWithRetry(RpcRequest rpcRequest, RpcClient rpcClient){
+
+    public RpcResponse sendServiceWithRetry(RpcRequest rpcRequest, RpcClient rpcClient) {
         this.rpcClient = rpcClient;
         Retryer<RpcResponse> retryer = RetryerBuilder.<RpcResponse>newBuilder()
-                //无论出现什么异常，都进行重试
+                // 无论出现什么异常，都进行重试
                 .retryIfException()
-                //返回结果为5开头的连接错误时进行重试
+                // 返回结果为5开头的连接错误时进行重试
                 .retryIfResult(response -> response.getCode() >= 500 && response.getCode() < 600)
-                //重试等待策略：等待 2s 后再进行重试
+                // 重试等待策略：等待 2s 后再进行重试
                 .withWaitStrategy(WaitStrategies.fixedWait(2, TimeUnit.SECONDS))
-                //重试停止策略：重试达到 3 次
+                // 重试停止策略：重试达到 3 次
                 .withStopStrategy(StopStrategies.stopAfterAttempt(3))
                 .withRetryListener(new RetryListener() {
                     @Override

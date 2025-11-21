@@ -219,3 +219,15 @@
 2. 配置优先级：系统属性可覆盖同名键（例如 `-Drpc.zk.connect=...`）。未提供配置文件时，系统按内置默认工作（负载均衡一致性哈希，序列化优先 Protobuf 再 JSON，限流可配置令牌桶，默认 ZK 参数）。
 
 3. 相关文档：`doc/实现一致性与配置化设计.md`
+
+### v8 高性能并发优化
+
+1. 测试指令
+
+```powershell
+& 'C:\Program Files\Java\jdk-21\bin\java.exe' `
+    -XX:+FlightRecorder `
+    -XX:StartFlightRecording=duration=60s,filename=F:\Code\myRPC\echo.jfr,settings=profile,stackdepth=1024 `
+    '@C:\Users\ADMINI~1\AppData\Local\Temp\cp_5w7tctqa61jszsqx8sfnzi7mj.argfile' `
+    'standardTest.EchoPerformanceRunner'
+```
